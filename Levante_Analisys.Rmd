@@ -1,0 +1,270 @@
+---
+title: "![](figures/IEO-logo.jpg){width=6cm}"
+output:
+  bookdown::pdf_document2:
+    includes:
+      before_body: titulo.sty
+    keep_tex: yes
+    number_sections: no
+    toc: true
+    toc_depth: 3
+bibliography: Donax.bib
+csl: apa.csl
+link-citations: yes
+linkcolor: blue
+indent: no
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{}
+- \lfoot[\thepage]{}
+- \rfoot[]{\thepage}
+- \fontsize{12}{22}
+- \selectfont
+---
+\pagebreak
+
+```{r setup1, echo=FALSE}
+set.seed(999)
+rm(list = ls())
+knitr::opts_chunk$set(echo=FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = 'center',
+                      fig.pos = "h",
+                      dev = 'jpeg',
+                      dpi = 300,
+                      tidy = TRUE,
+                      tidy.opts = list(width.cutoff = 40))  # límite de ancho
+#XQuartz is a mess, put this in your onload to default to cairo instead
+options(bitmapType = "cairo") 
+# (https://github.com/tidyverse/ggplot2/issues/2655)
+# Lo mapas se hacen mas rapido
+```
+
+# Contexto
+
+## Análisis de Vientos de Levante y Poniente
+
+Este documento presenta un análisis comprensivo de los patrones de viento de Levante y Poniente basado en datos meteorológicos del período 2013-2025. El análisis incluye la caracterización temporal, intensidad y duración de estos eventos atmosféricos.
+
+## Objetivo
+
+El objetivo de este trabajo es encontrar y cuantificar los patrones de viento y relacionarlos con variables poblacionales de Coquina *Donax trunculus* provenientes del monitoreo poblacional y pesquero que lleva a cabo el IEO en el marco del proyecto FEMP 04.
+
+
+## Metodología
+
+### Carga de librerías y datos
+
+```{r libraries, echo=TRUE}
+# Vector con todos los paquetes que necesitas
+paquetes <- c(
+  "readr", "dplyr", "lubridate", "stringr", "purrr",
+  "ggplot2", "tidyr", "gridExtra", "viridis", "scales",
+  "formatR"
+)
+
+purrr::walk(paquetes, library, character.only = TRUE)
+```
+
+
+### Carga de datos
+
+
+```{r data-loading, echo=TRUE}
+directorio <- "~/IEO/wind-recruitment-Dtrunculus/data"
+archivos <- c(
+  "21405_40638_5028023_WIND_20130101124124_20250723114124.csv",
+  "21405_40639_5027023_WIND_20130101124130_20250723114130.csv",
+  "21405_40640_5029023_WIND_20130101124134_20250723114134.csv",
+  "21405_40641_5030023_WIND_20130101124138_20250723114138.csv"
+)
+rutas_completas <- file.path(directorio, archivos)
+
+# Función para leer y limpiar cada archivo
+leer_archivo_viento <- function(archivo) {
+  readr::read_tsv(archivo, skip = 1,
+                  col_names = c("fecha_raw", 
+                                "velocidad_viento", 
+                                "direccion_grados"),
+                  show_col_types = FALSE) %>%
+    mutate(
+      fecha_raw = stringr::str_trim(fecha_raw),
+      fecha = lubridate::parse_date_time(fecha_raw, orders = "Y m d H", tz = "UTC"),
+      velocidad_viento = as.numeric(velocidad_viento),
+      direccion_grados = as.numeric(direccion_grados)
+    ) %>%
+    dplyr::select(fecha, velocidad_viento, direccion_grados)
+}
+
+datos_viento <- purrr::map_dfr(rutas_completas, leer_archivo_viento)
+```
+
+
+```{r glimpse, echo=TRUE}
+glimpse(datos_viento)
+```
+
+### Limpieza y clasificación de datos
+
+```{r data-cleaning, echo=TRUE}
+datos_limpios <- datos_viento %>%
+  filter(!is.na(fecha),
+         !is.na(velocidad_viento),
+         !is.na(direccion_grados),
+         velocidad_viento != -999.9,
+         direccion_grados != -999.9)
+```
+
+### Rosa de Vientos
+
+Todos los analisis y criterios de clasificacion de vientos fueron obtenidos de @bartolome1998viento
+
+```{r wind-rose-classification, echo=TRUE, fig.cap="Rosa de vientos mostrando la clasificación de sectores para Levante y Poniente"}
+# Crear la clasificación de sectores con grados
+sectores_clasificacion <- data.frame(
+  sector = c("Norte", "Noreste", "Este", "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste"),
+  grados_inicio = c(337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5),
+  grados_fin = c(22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5),
+  tipo_viento = c("Otro", "Otro", "Levante", "Levante", "Otro", "Otro", "Poniente", "Otro"),
+  valor = 1,
+  etiqueta_grados = c("337.5°-22.5°", "22.5°-67.5°", "67.5°-112.5°", "112.5°-157.5°", 
+                      "157.5°-202.5°", "202.5°-247.5°", "247.5°-292.5°", "292.5°-337.5°")
+) %>%
+  mutate(
+    sector = factor(sector, levels = c("Norte", "Noreste", "Este", "Sureste", 
+                                       "Sur", "Suroeste", "Oeste", "Noroeste")),
+    color_sector = case_when(
+      tipo_viento == "Levante" ~ "#E74C3C",
+      tipo_viento == "Poniente" ~ "#3498DB",
+      TRUE ~ "#95A5A6"
+    )
+  )
+
+rosa_polar_clasificacion <- ggplot(sectores_clasificacion, aes(x = sector, y = valor, fill = tipo_viento)) +
+  geom_col(width = 0.9, color = "white", size = 1) +
+  scale_fill_manual(
+    values = c("Levante" = "#E74C3C", "Poniente" = "#3498DB", "Otro" = "#95A5A6"),
+    name = "Clasificación"
+  ) +
+  geom_text(aes(label = paste0(sector, "\n", etiqueta_grados)), 
+            position = position_stack(vjust = 0.5), 
+            color = "white", size = 3, fontface = "bold", lineheight = 0.8) +
+  labs(
+    title = "Rosa de Vientos - Clasificación por Sectores",
+    subtitle = "Levante: Este (67.5°-112.5°) y Sureste (112.5°-157.5°) | Poniente: Oeste (247.5°-292.5°)",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, margin = margin(b = 20)),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom",
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11)
+  ) +
+  coord_polar(theta = "x", start = -pi/8, direction = 1) +
+  theme(
+    panel.grid.major.x = element_line(color = "lightblue", linetype = "dotted"),
+    panel.grid.major.y = element_line(color = "lightblue", linetype = "dotted"),
+    axis.text.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(0, 1.3))
+
+rosa_polar_clasificacion
+```
+
+```{r wind-classification, echo=TRUE}
+# Clasificar los datos de viento
+datos_clasificados <- datos_limpios %>%
+  mutate(
+    tipo_viento = case_when(
+      velocidad_viento >= 4 & velocidad_viento <= 40 &
+        direccion_grados >= 67.5 & direccion_grados <= 157.5 ~ "Levante",
+      velocidad_viento >= 8 & velocidad_viento <= 40 &
+        direccion_grados >= 247.5 & direccion_grados <= 292.5 ~ "Poniente",
+      TRUE ~ "Otro"
+    )
+  )
+```
+
+### Análisis de frecuencias
+
+```{r frequency-analysis, echo=TRUE, fig.cap="Distribución de velocidades del viento y frecuencia por dirección cardinal"}
+# Función para clasificar en puntos cardinales
+puntos_cardinales <- function(grados) {
+  case_when(
+    grados >= 337.5 | grados < 22.5 ~ "N",
+    grados >= 22.5 & grados < 67.5 ~ "NE",
+    grados >= 67.5 & grados < 112.5 ~ "E",
+    grados >= 112.5 & grados < 157.5 ~ "SE",
+    grados >= 157.5 & grados < 202.5 ~ "S",
+    grados >= 202.5 & grados < 247.5 ~ "SW",
+    grados >= 247.5 & grados < 292.5 ~ "W",
+    grados >= 292.5 & grados < 337.5 ~ "NW"
+  )
+}
+
+# Análisis de velocidades
+datos_vel <- datos_clasificados %>%
+  filter(!is.na(velocidad_viento)) %>%
+  mutate(clase_velocidad = cut(
+    velocidad_viento,
+    breaks = seq(0, 24, by = 3),
+    include.lowest = TRUE,
+    right = FALSE
+  )) %>%
+  count(clase_velocidad) %>%
+  mutate(porcentaje = 100 * n / sum(n))
+
+# Gráfico 1: Velocidad media
+g1 <- ggplot(datos_vel, aes(x = clase_velocidad, y = porcentaje)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(x = "Velocidad Media (m/s)", y = "Frecuencia %") +
+  theme_minimal(base_size = 13)
+
+# Análisis de direcciones con tipos de viento
+datos_dir <- datos_clasificados %>%
+  filter(!is.na(direccion_grados)) %>%
+  mutate(
+    direccion_cardinal = puntos_cardinales(direccion_grados),
+    tipo_viento = case_when(
+      direccion_cardinal %in% c("E", "SE") ~ "Levante",
+      direccion_cardinal %in% c("W") ~ "Poniente",
+      TRUE ~ "Otro"
+    )
+  ) %>%
+  count(direccion_cardinal, tipo_viento) %>%
+  mutate(
+    porcentaje = 100 * n / sum(n),
+    direccion_cardinal = factor(
+      direccion_cardinal,
+      levels = c("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    )
+  )
+
+# Gráfico 2: Dirección cardinal con colores por tipo de viento
+g2 <- ggplot(datos_dir, aes(x = direccion_cardinal, 
+                            y = porcentaje, 
+                            fill = tipo_viento)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(x = "Dirección de Procedencia", y = "Frecuencia %") +
+  scale_fill_manual(values = c("Levante" = "#d62728", "Poniente" = "#1f77b4", "Otro" = "#95A5A6")) +
+  coord_polar(theta = "x") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+gridExtra::grid.arrange(g1, g2, ncol = 2)
+```
+
+### Análisis de eventos de viento
+
+### Duración e intensidad de episodios
+
+
+# Referencias
