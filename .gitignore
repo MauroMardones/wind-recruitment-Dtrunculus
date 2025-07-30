@@ -6,3 +6,6 @@
 /figures
 /data
 /docs
+/Levante_Analisys_files
+*.log
+*.tex

@@ -107,6 +107,39 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+% definitions for citeproc citations
+\NewDocumentCommand\citeproctext{}{}
+\NewDocumentCommand\citeproc{mm}{%
+  \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
+\makeatletter
+ % allow citations to break across lines
+ \let\@cite@ofmt\@firstofone
+ % avoid brackets around text for \cite:
+ \def\@biblabel#1{}
+ \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
+\makeatother
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2] % #1 hanging-indent, #2 entry-spacing
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  % set entry spacing
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
@@ -114,6 +147,20 @@
 \rfoot[]{\thepage}
 \fontsize{12}{22}
 \selectfont
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
 \usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
@@ -137,9 +184,9 @@
 
 %\begin{titlepage}
 \begin{flushleft}
-\Large{\textbf{Supplementary Material 1}}\\
+\Large{\textbf{Material Suplementario 1}}\\
 \vspace*{2\baselineskip}
-\LARGE{\textbf{Evaluating the effects of varying minimum legal sizes on population variables in the wedge clam \textit{Donax trunculus} fishery using an integrated model}}\\
+\LARGE{\textbf{Análisis del viento de Levante y su impacto en reclutamiento de coquina \textit{Donax trunculus} durante la última década}}\\
 \vspace*{5\baselineskip}
 \Large{Project FEMP 04}\\
 \vspace*{1\baselineskip}
@@ -149,9 +196,10 @@
 \begin{flushright}
 \large{\textit{Mauricio Mardones}}\\
 \large{\textit{Marina Delgado}}\\
+\large{\textit{Ricardo Sánchez}}\\
 \vspace*{1\baselineskip}
 \normalsize{\textbf{Fecha}}\\
-Abril, 2024
+August, 2025
 \end{flushright}
 
 % \end{titlepage}
@@ -177,234 +225,370 @@ Abril, 2024
 }
 \pagebreak
 
-\section{Análisis de Vientos de Levante y Poniente}\label{anuxe1lisis-de-vientos-de-levante-y-poniente}
+\section{Contexto}\label{contexto}
 
-Este documento presenta un análisis comprensivo de los patrones de viento de Levante y Poniente basado en datos meteorológicos del período 2013-2025. El análisis incluye la caracterización temporal, intensidad y duración de estos eventos atmosféricos.
+\subsubsection{\texorpdfstring{Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (\emph{Donax trunculus})}{Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (Donax trunculus)}}\label{anuxe1lisis-de-los-vientos-de-levante-y-su-relaciuxf3n-con-el-reclutamiento-de-la-coquina-donax-trunculus}
 
-El objetivo de este trabajo es encontrar y cuantificar los patrones de viento y relacionarlos con variables poblacionales de Coquina \emph{Donax trunculus} provenientes del monitoreo poblacional y pesquero que lleva a cabo el IEO en el marco del proyecto FEMP 04.
+Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina \emph{Donax trunculus}, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
 
-\subsection{Carga de librerías y datos}\label{carga-de-libreruxedas-y-datos}
+\subsubsection{Objetivo}\label{objetivo}
+
+El objetivo principal de este trabajo es identificar y cuantificar los patrones de viento dominantes y analizar su relación con parámetros poblacionales de \emph{Donax trunculus}. Para ello, se emplean datos de monitoreo biológico y pesquero obtenidos por el Instituto Español de Oceanografía (IEO-CSIC) en el marco del proyecto FEMP 04, con énfasis en las dinámicas de reclutamiento observadas en el Golfo de Cádiz.
+
+\newpage
+
+\section{Metodología}\label{metodologuxeda}
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\CommentTok{\# Vector con todos los paquetes que}
-\CommentTok{\# necesitas}
-\NormalTok{paquetes }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"readr"}\NormalTok{, }\StringTok{"dplyr"}\NormalTok{, }\StringTok{"lubridate"}\NormalTok{,}
-    \StringTok{"stringr"}\NormalTok{, }\StringTok{"purrr"}\NormalTok{, }\StringTok{"ggplot2"}\NormalTok{, }\StringTok{"tidyr"}\NormalTok{,}
-    \StringTok{"gridExtra"}\NormalTok{, }\StringTok{"viridis"}\NormalTok{, }\StringTok{"scales"}\NormalTok{, }\StringTok{"formatR"}\NormalTok{)}
+\NormalTok{paquetes }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"readr"}\NormalTok{, }\StringTok{"dplyr"}\NormalTok{, }\StringTok{"lubridate"}\NormalTok{, }\StringTok{"stringr"}\NormalTok{, }\StringTok{"purrr"}\NormalTok{,}
+  \StringTok{"ggplot2"}\NormalTok{, }\StringTok{"tidyr"}\NormalTok{, }\StringTok{"gridExtra"}\NormalTok{, }\StringTok{"viridis"}\NormalTok{, }\StringTok{"scales"}\NormalTok{,}
+  \StringTok{"formatR"}\NormalTok{, }\StringTok{"ggpubr"}\NormalTok{, }\StringTok{"ggthemes"}\NormalTok{, }\StringTok{"kableExtra"}\NormalTok{, }\StringTok{"sjPlot"}\NormalTok{, }
+  \StringTok{"broom"}\NormalTok{, }\StringTok{"kableExtra"}
+\NormalTok{  )}
 
 \NormalTok{purrr}\SpecialCharTok{::}\FunctionTok{walk}\NormalTok{(paquetes, library, }\AttributeTok{character.only =} \ConstantTok{TRUE}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
+\subsubsection{Datos de viento}\label{datos-de-viento}
+
+El acceso al servicio de descargas de \textbf{Puertos del Estado} se hace desde la página web de oceanografía de \href{http://www.puertos.es/es-es/oceanografia/Paginas/portus.aspx}{Puertos del Estado}
+
+Selección de estaciones y variables
+
+\begin{itemize}
+\tightlist
+\item
+  En el sistema \textbf{DescargaPortus}, se suele seleccionar entre varias estaciones meteorológicas costeras.
+\item
+  Elegimos \textbf{cuatro puntos} ubicados frente a la costa del Parque de Doñana en la provincia de Cádiz (Figure \ref{fig:mapa}).
+\item
+  Seleccionamos datos de \textbf{viento}, en particular \textbf{velocidad} y \textbf{dirección}.
+\end{itemize}
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.95\linewidth]{figures/mapa} 
+
+}
+
+\caption{Puntos seleccionados con la variable viento desde Puertos del Estado}\label{fig:mapa}
+\end{figure}
+
+Período y frecuencia de datos
+
+\begin{itemize}
+\tightlist
+\item
+  Un \textbf{rango temporal} (por ejemplo 2013‑2025).
+\item
+  Desechar valores nulos (ej. ‑999.9) siguiendo las recomendaciones de limpieza del manual.
+\end{itemize}
+
+Formato de descarga
+
+\begin{itemize}
+\tightlist
+\item
+  \texttt{.csv}en formato tabular con columnas como:
+\item
+  Fecha (GMT)
+\item
+  Velocidad del viento (m/s)
+\item
+  Dirección del viento (grados meteorológicos)
+\end{itemize}
+
+Calidad de datos
+
+\begin{itemize}
+\tightlist
+\item
+  Aplicamos filtros para descartar datos erróneos, como aquellos con velocidad negativa o direcciones fuera del rango 0--360º.
+\end{itemize}
+
+Procesamiento en R
+
+\begin{itemize}
+\tightlist
+\item
+  Finalmente, se importan en R usando funciones tipo \texttt{readr}, limpieza con \texttt{dplyr}, conversión de fechas con \texttt{lubridate}, etc.
+\end{itemize}
+
+Flujo de trabajo
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.3375}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.6625}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Etapa
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Acción realizada
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Selección de estaciones & Cuatro puntos frente a Doñana (Cádiz) \\
+Variables & Viento: velocidad y dirección \\
+Periodo de interés & Desde 2013 hasta el presente \\
+Formato de descarga & CSV / delimitado con primer registro meta \\
+Limpieza de datos & Eliminación de ``‑999.9'' y NA \\
+Conversión de formatos & Fecha GMT a \texttt{POSIXct} o \texttt{Date} \\
+\end{longtable}
+
 \begin{Shaded}
 \begin{Highlighting}[]
-\CommentTok{\# Ruta al directorio}
-\NormalTok{directorio }\OtherTok{\textless{}{-}} \StringTok{"\textasciitilde{}/IEO/Environmental\_data"}
-
-\CommentTok{\# Vector con nombres de archivos}
-\NormalTok{archivos }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"21405\_40638\_5028023\_WIND\_20130101124124\_20250723114124.csv"}\NormalTok{,}
-    \StringTok{"21405\_40639\_5027023\_WIND\_20130101124130\_20250723114130.csv"}\NormalTok{,}
-    \StringTok{"21405\_40640\_5029023\_WIND\_20130101124134\_20250723114134.csv"}\NormalTok{,}
-    \StringTok{"21405\_40641\_5030023\_WIND\_20130101124138\_20250723114138.csv"}\NormalTok{)}
-
-\CommentTok{\# Construir rutas completas}
-\NormalTok{rutas\_completas }\OtherTok{\textless{}{-}} \FunctionTok{file.path}\NormalTok{(directorio,}
-\NormalTok{    archivos)}
-
-\CommentTok{\# Función para leer y limpiar cada}
-\CommentTok{\# archivo}
+\CommentTok{\#Funcion para leer todos los archivos.}
 \NormalTok{leer\_archivo\_viento }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(archivo) \{}
-\NormalTok{    readr}\SpecialCharTok{::}\FunctionTok{read\_tsv}\NormalTok{(archivo, }\AttributeTok{skip =} \DecValTok{1}\NormalTok{, }\AttributeTok{col\_names =} \FunctionTok{c}\NormalTok{(}\StringTok{"fecha\_raw"}\NormalTok{,}
-        \StringTok{"velocidad\_viento"}\NormalTok{, }\StringTok{"direccion\_grados"}\NormalTok{),}
-        \AttributeTok{show\_col\_types =} \ConstantTok{FALSE}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
-        \FunctionTok{mutate}\NormalTok{(}\AttributeTok{fecha\_raw =}\NormalTok{ stringr}\SpecialCharTok{::}\FunctionTok{str\_trim}\NormalTok{(fecha\_raw),}
-            \AttributeTok{fecha =}\NormalTok{ lubridate}\SpecialCharTok{::}\FunctionTok{parse\_date\_time}\NormalTok{(fecha\_raw,}
-                \AttributeTok{orders =} \StringTok{"Y m d H"}\NormalTok{, }\AttributeTok{tz =} \StringTok{"UTC"}\NormalTok{),}
-            \AttributeTok{velocidad\_viento =} \FunctionTok{as.numeric}\NormalTok{(velocidad\_viento),}
-            \AttributeTok{direccion\_grados =} \FunctionTok{as.numeric}\NormalTok{(direccion\_grados)) }\SpecialCharTok{\%\textgreater{}\%}
-\NormalTok{        dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(fecha, velocidad\_viento,}
-\NormalTok{            direccion\_grados)}
+\NormalTok{  readr}\SpecialCharTok{::}\FunctionTok{read\_tsv}\NormalTok{(archivo, }\AttributeTok{skip =} \DecValTok{1}\NormalTok{,}
+                  \AttributeTok{col\_names =} \FunctionTok{c}\NormalTok{(}\StringTok{"fecha\_raw"}\NormalTok{, }
+                                \StringTok{"velocidad\_viento"}\NormalTok{, }
+                                \StringTok{"direccion\_grados"}\NormalTok{),}
+                  \AttributeTok{show\_col\_types =} \ConstantTok{FALSE}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+    \FunctionTok{mutate}\NormalTok{(}
+      \AttributeTok{fecha\_raw =}\NormalTok{ stringr}\SpecialCharTok{::}\FunctionTok{str\_trim}\NormalTok{(fecha\_raw),}
+      \AttributeTok{fecha =}\NormalTok{ lubridate}\SpecialCharTok{::}\FunctionTok{parse\_date\_time}\NormalTok{(fecha\_raw, }\AttributeTok{orders =} \StringTok{"Y m d H"}\NormalTok{, }\AttributeTok{tz =} \StringTok{"UTC"}\NormalTok{),}
+      \AttributeTok{velocidad\_viento =} \FunctionTok{as.numeric}\NormalTok{(velocidad\_viento),}
+      \AttributeTok{direccion\_grados =} \FunctionTok{as.numeric}\NormalTok{(direccion\_grados)}
+\NormalTok{    ) }\SpecialCharTok{\%\textgreater{}\%}
+\NormalTok{    dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(fecha, velocidad\_viento, direccion\_grados)}
 \NormalTok{\}}
 
-\CommentTok{\# Leer y combinar todos los archivos}
-\NormalTok{datos\_viento }\OtherTok{\textless{}{-}}\NormalTok{ purrr}\SpecialCharTok{::}\FunctionTok{map\_dfr}\NormalTok{(rutas\_completas,}
-\NormalTok{    leer\_archivo\_viento)}
-\FunctionTok{glimpse}\NormalTok{(datos\_viento)}
+\NormalTok{datos\_viento }\OtherTok{\textless{}{-}}\NormalTok{ purrr}\SpecialCharTok{::}\FunctionTok{map\_dfr}\NormalTok{(rutas\_completas, leer\_archivo\_viento)}
 \end{Highlighting}
 \end{Shaded}
+
+Los registros de viento fueron clasificados en tres categorías: \textbf{Levante}, \textbf{Poniente} u \textbf{Otro}, en base a la siguiente regla propuesta por Bartolomé López-Somoza (\citeproc{ref-bartolome1998viento}{1998}):
+
+\[
+\text{tipo\_viento} =
+\begin{cases}
+\text{"Levante"} & \text{si } 4 \leq V < 40 \text{ y } 67.5^\circ \leq D \leq 157.5^\circ \\
+\text{"Poniente"} & \text{si } 8 \leq V < 40 \text{ y } 247.5^\circ \leq D \leq 292.5^\circ \\
+\text{"Otro"} & \text{en cualquier otro caso}
+\end{cases}
+\]
+Donde:
+
+\begin{itemize}
+\tightlist
+\item
+  \(V\) es la \textbf{velocidad del viento} en m/s.
+\item
+  \(D\) es la \textbf{dirección del viento} en grados meteorológicos.
+\end{itemize}
+
+Esta clasificación se implementó en R con \texttt{case\_when()} para etiquetar automáticamente cada observación horaria.
+
+En terminos direccionales, la rosa de los vientos queda clasificada de la siguiente forma:
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/windrose-1} 
+
+}
+
+\caption{Rosa de vientos mostrando la clasificación de sectores para Levante y Poniente}\label{fig:windrose}
+\end{figure}
+
+\subsection{Datos de variables poblacionales de coquina}\label{datos-de-variables-poblacionales-de-coquina}
+
+Utilizaremos el indice de reclutamiento que provien e de las tallas , calculado como la proporcion de individuos \texttt{\textless{}\ 15\ mm}.
+
+\newpage
+
+\section{Resultados}\label{resultados}
+
+Analizamos la frecuencia de eventos de levante y poniente en la Figura \ref{fig:frequency-analysis2}.
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.6\linewidth]{Levante_Analisys_files/figure-latex/frequency-analysis2-1} 
+
+}
+
+\caption{Distribución de velocidades del viento y frecuencia por dirección cardinal}\label{fig:frequency-analysis2}
+\end{figure}
+
+\newpage
+
+También visualizamos la relación entre intensisdad y dias con levante y poniente en la Figura \ref{fig:intvel}
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.6\linewidth]{Levante_Analisys_files/figure-latex/intvel-1} 
+
+}
+
+\caption{Relación entre intensisdad y dias con levante y poniente}\label{fig:intvel}
+\end{figure}
+
+Promedio por mes de los días con levante y poniente a través de los meses en la Figura \ref{fig:intvel2}.
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.6\linewidth]{Levante_Analisys_files/figure-latex/intvel2-1} 
+
+}
+
+\caption{Relación entre intensisdad y dias con levante y poniente}\label{fig:intvel2}
+\end{figure}
+\newpage
+
+Ahora por año y por mes
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-3-1} \end{center}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-4-1} \end{center}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-5-1} \end{center}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-6-1} \end{center}
+\newpage
+
+\subsubsection{Series temporales del monitoreo poblacional de coquina}\label{series-temporales-del-monitoreo-poblacional-de-coquina}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-7-1} \end{center}
+
+El plot muestra una marcada estacionalidad de los reclutamientos, con un pulso posterior a los meses estivales como lo indica Delgado \& Silva (\citeproc{ref-Delgado2018}{2018}) en la Figura \ref{fig:ciclo}.
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.75\linewidth]{figures/ciclo} 
+
+}
+
+\caption{Schematic representation of the reproductive cycle, periods of emission of gametes and related recruitment events in populations of D. trunculus from SW Spain. Black symbols represent the C1 cohort (from February-March) and grey symbols represent the C2 cohort (from July)}\label{fig:ciclo}
+\end{figure}
+\newpage
+
+\subsection{Modelos de correlacion entre Reclutamiento y Viento de Levante}\label{modelos-de-correlacion-entre-reclutamiento-y-viento-de-levante}
+
+Uno las bases que estan en los objetos \texttt{serie\_levante} y \texttt{datos}
 
 \begin{verbatim}
-## Rows: 438,484
-## Columns: 3
-## $ fecha            <dttm> NA, 2013-01-01 00:00:00, 2013-01-01 01:00:00, 2013-0~
-## $ velocidad_viento <dbl> NA, 4.52, 7.11, 7.38, 7.14, 6.70, 5.24, 3.39, 3.57, 4~
-## $ direccion_grados <dbl> NA, 229, 235, 240, 243, 251, 261, 288, 316, 330, 340,~
+## Rows: 145
+## Columns: 6
+## $ año             <dbl> 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, ~
+## $ mes             <ord> Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov,~
+## $ tipo_viento     <chr> "Levante", "Levante", "Levante", "Levante", "Levante",~
+## $ dias_con_evento <int> 5, 4, 8, 4, 1, 1, 5, 2, 5, 6, 6, 15, 7, 1, 7, 4, 4, 3,~
+## $ mes_num         <int> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, ~
+## $ año_mes         <date> 2013-01-01, 2013-02-01, 2013-03-01, 2013-04-01, 2013-~
 \end{verbatim}
 
-\subsection{Limpieza y clasificación de datos}\label{limpieza-y-clasificaciuxf3n-de-datos}
+\begin{verbatim}
+## Rows: 109
+## Columns: 3
+## Groups: ANO [12]
+## $ ANO     <dbl> 2013, 2013, 2014, 2014, 2014, 2014, 2014, 2014, 2014, 2014, 20~
+## $ mes_num <dbl> 10, 12, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, ~
+## $ meand15 <dbl> 0.0000000, 2.9239766, 12.7121216, 13.6718750, 37.3687894, 6.43~
+\end{verbatim}
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{datos\_limpios }\OtherTok{\textless{}{-}}\NormalTok{ datos\_viento }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(fecha), }\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(velocidad\_viento),}
-        \SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(direccion\_grados), velocidad\_viento }\SpecialCharTok{!=}
-            \SpecialCharTok{{-}}\FloatTok{999.9}\NormalTok{, direccion\_grados }\SpecialCharTok{!=} \SpecialCharTok{{-}}\FloatTok{999.9}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
+\begin{figure}
 
-\subsubsection{Rosa de Vientos - Clasificación por Sectores}\label{rosa-de-vientos---clasificaciuxf3n-por-sectores}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\CommentTok{\# Crear la clasificación de sectores}
-\CommentTok{\# con grados}
-\NormalTok{sectores\_clasificacion }\OtherTok{\textless{}{-}} \FunctionTok{data.frame}\NormalTok{(}\AttributeTok{sector =} \FunctionTok{c}\NormalTok{(}\StringTok{"Norte"}\NormalTok{,}
-    \StringTok{"Noreste"}\NormalTok{, }\StringTok{"Este"}\NormalTok{, }\StringTok{"Sureste"}\NormalTok{, }\StringTok{"Sur"}\NormalTok{,}
-    \StringTok{"Suroeste"}\NormalTok{, }\StringTok{"Oeste"}\NormalTok{, }\StringTok{"Noroeste"}\NormalTok{), }\AttributeTok{grados\_inicio =} \FunctionTok{c}\NormalTok{(}\FloatTok{337.5}\NormalTok{,}
-    \FloatTok{22.5}\NormalTok{, }\FloatTok{67.5}\NormalTok{, }\FloatTok{112.5}\NormalTok{, }\FloatTok{157.5}\NormalTok{, }\FloatTok{202.5}\NormalTok{, }\FloatTok{247.5}\NormalTok{,}
-    \FloatTok{292.5}\NormalTok{), }\AttributeTok{grados\_fin =} \FunctionTok{c}\NormalTok{(}\FloatTok{22.5}\NormalTok{, }\FloatTok{67.5}\NormalTok{, }\FloatTok{112.5}\NormalTok{,}
-    \FloatTok{157.5}\NormalTok{, }\FloatTok{202.5}\NormalTok{, }\FloatTok{247.5}\NormalTok{, }\FloatTok{292.5}\NormalTok{, }\FloatTok{337.5}\NormalTok{), }\AttributeTok{tipo\_viento =} \FunctionTok{c}\NormalTok{(}\StringTok{"Otro"}\NormalTok{,}
-    \StringTok{"Otro"}\NormalTok{, }\StringTok{"Levante"}\NormalTok{, }\StringTok{"Levante"}\NormalTok{, }\StringTok{"Otro"}\NormalTok{,}
-    \StringTok{"Otro"}\NormalTok{, }\StringTok{"Poniente"}\NormalTok{, }\StringTok{"Otro"}\NormalTok{), }\AttributeTok{valor =} \DecValTok{1}\NormalTok{,}
-    \AttributeTok{etiqueta\_grados =} \FunctionTok{c}\NormalTok{(}\StringTok{"337.5°{-}22.5°"}\NormalTok{,}
-        \StringTok{"22.5°{-}67.5°"}\NormalTok{, }\StringTok{"67.5°{-}112.5°"}\NormalTok{,}
-        \StringTok{"112.5°{-}157.5°"}\NormalTok{, }\StringTok{"157.5°{-}202.5°"}\NormalTok{,}
-        \StringTok{"202.5°{-}247.5°"}\NormalTok{, }\StringTok{"247.5°{-}292.5°"}\NormalTok{,}
-        \StringTok{"292.5°{-}337.5°"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{sector =} \FunctionTok{factor}\NormalTok{(sector, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"Norte"}\NormalTok{,}
-        \StringTok{"Noreste"}\NormalTok{, }\StringTok{"Este"}\NormalTok{, }\StringTok{"Sureste"}\NormalTok{, }\StringTok{"Sur"}\NormalTok{,}
-        \StringTok{"Suroeste"}\NormalTok{, }\StringTok{"Oeste"}\NormalTok{, }\StringTok{"Noroeste"}\NormalTok{)),}
-        \AttributeTok{color\_sector =} \FunctionTok{case\_when}\NormalTok{(tipo\_viento }\SpecialCharTok{==}
-            \StringTok{"Levante"} \SpecialCharTok{\textasciitilde{}} \StringTok{"\#E74C3C"}\NormalTok{, tipo\_viento }\SpecialCharTok{==}
-            \StringTok{"Poniente"} \SpecialCharTok{\textasciitilde{}} \StringTok{"\#3498DB"}\NormalTok{, }\ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}}
-            \StringTok{"\#95A5A6"}\NormalTok{))}
-
-\NormalTok{rosa\_polar\_clasificacion }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(sectores\_clasificacion,}
-    \FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ sector, }\AttributeTok{y =}\NormalTok{ valor, }\AttributeTok{fill =}\NormalTok{ tipo\_viento)) }\SpecialCharTok{+}
-    \FunctionTok{geom\_col}\NormalTok{(}\AttributeTok{width =} \FloatTok{0.9}\NormalTok{, }\AttributeTok{color =} \StringTok{"white"}\NormalTok{,}
-        \AttributeTok{size =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{scale\_fill\_manual}\NormalTok{(}\AttributeTok{values =} \FunctionTok{c}\NormalTok{(}\AttributeTok{Levante =} \StringTok{"\#E74C3C"}\NormalTok{,}
-    \AttributeTok{Poniente =} \StringTok{"\#3498DB"}\NormalTok{, }\AttributeTok{Otro =} \StringTok{"\#95A5A6"}\NormalTok{),}
-    \AttributeTok{name =} \StringTok{"Clasificación"}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{geom\_text}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{label =} \FunctionTok{paste0}\NormalTok{(sector,}
-    \StringTok{"}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{, etiqueta\_grados)), }\AttributeTok{position =} \FunctionTok{position\_stack}\NormalTok{(}\AttributeTok{vjust =} \FloatTok{0.5}\NormalTok{),}
-    \AttributeTok{color =} \StringTok{"white"}\NormalTok{, }\AttributeTok{size =} \DecValTok{3}\NormalTok{, }\AttributeTok{fontface =} \StringTok{"bold"}\NormalTok{,}
-    \AttributeTok{lineheight =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Rosa de Vientos {-} Clasificación por Sectores"}\NormalTok{,}
-    \AttributeTok{subtitle =} \StringTok{"Levante: Este (67.5°{-}112.5°) y Sureste (112.5°{-}157.5°) | Poniente: Oeste (247.5°{-}292.5°)"}\NormalTok{,}
-    \AttributeTok{x =} \StringTok{""}\NormalTok{, }\AttributeTok{y =} \StringTok{""}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+} \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{size =} \DecValTok{16}\NormalTok{,}
-    \AttributeTok{face =} \StringTok{"bold"}\NormalTok{, }\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{), }\AttributeTok{plot.subtitle =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{size =} \DecValTok{12}\NormalTok{,}
-    \AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{, }\AttributeTok{margin =} \FunctionTok{margin}\NormalTok{(}\AttributeTok{b =} \DecValTok{20}\NormalTok{)),}
-    \AttributeTok{axis.text.y =} \FunctionTok{element\_blank}\NormalTok{(), }\AttributeTok{axis.ticks =} \FunctionTok{element\_blank}\NormalTok{(),}
-    \AttributeTok{panel.grid =} \FunctionTok{element\_blank}\NormalTok{(), }\AttributeTok{legend.position =} \StringTok{"bottom"}\NormalTok{,}
-    \AttributeTok{legend.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{size =} \DecValTok{12}\NormalTok{,}
-        \AttributeTok{face =} \StringTok{"bold"}\NormalTok{), }\AttributeTok{legend.text =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{size =} \DecValTok{11}\NormalTok{)) }\SpecialCharTok{+}
-    \FunctionTok{coord\_polar}\NormalTok{(}\AttributeTok{theta =} \StringTok{"x"}\NormalTok{, }\AttributeTok{start =} \SpecialCharTok{{-}}\NormalTok{pi}\SpecialCharTok{/}\DecValTok{8}\NormalTok{,}
-        \AttributeTok{direction =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{theme}\NormalTok{(}\AttributeTok{panel.grid.major.x =} \FunctionTok{element\_line}\NormalTok{(}\AttributeTok{color =} \StringTok{"lightblue"}\NormalTok{,}
-    \AttributeTok{linetype =} \StringTok{"dotted"}\NormalTok{), }\AttributeTok{panel.grid.major.y =} \FunctionTok{element\_line}\NormalTok{(}\AttributeTok{color =} \StringTok{"lightblue"}\NormalTok{,}
-    \AttributeTok{linetype =} \StringTok{"dotted"}\NormalTok{), }\AttributeTok{axis.text.x =} \FunctionTok{element\_blank}\NormalTok{()) }\SpecialCharTok{+}
-    \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{limits =} \FunctionTok{c}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FloatTok{1.3}\NormalTok{))}
-
-\NormalTok{rosa\_polar\_clasificacion}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{figure}[h]
-
-{\centering \includegraphics{Levante_Analisys_files/figure-latex/wind-rose-classification-1} 
+{\centering \includegraphics[width=0.75\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-10-1} 
 
 }
 
-\caption{Rosa de vientos mostrando la clasificación de sectores para Levante y Poniente}\label{fig:wind-rose-classification}
+\caption{Distribución de variablees objetivo para el análisis de correlación}\label{fig:unnamed-chunk-10-1}
 \end{figure}
+\begin{figure}
 
-\begin{Shaded}
-\begin{Highlighting}[]
-\CommentTok{\# Clasificar los datos de viento}
-\NormalTok{datos\_clasificados }\OtherTok{\textless{}{-}}\NormalTok{ datos\_limpios }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{tipo\_viento =} \FunctionTok{case\_when}\NormalTok{(velocidad\_viento }\SpecialCharTok{\textgreater{}=}
-        \DecValTok{4} \SpecialCharTok{\&}\NormalTok{ velocidad\_viento }\SpecialCharTok{\textless{}=} \DecValTok{40} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textgreater{}=}
-        \FloatTok{67.5} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textless{}=} \FloatTok{157.5} \SpecialCharTok{\textasciitilde{}}
-        \StringTok{"Levante"}\NormalTok{, velocidad\_viento }\SpecialCharTok{\textgreater{}=} \DecValTok{8} \SpecialCharTok{\&}
-\NormalTok{        velocidad\_viento }\SpecialCharTok{\textless{}=} \DecValTok{40} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textgreater{}=}
-        \FloatTok{247.5} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textless{}=} \FloatTok{292.5} \SpecialCharTok{\textasciitilde{}}
-        \StringTok{"Poniente"}\NormalTok{, }\ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \StringTok{"Otro"}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-\subsection{Análisis de frecuencias}\label{anuxe1lisis-de-frecuencias}
-
-\subsubsection{Distribución de velocidades y direcciones}\label{distribuciuxf3n-de-velocidades-y-direcciones}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\CommentTok{\# Función para clasificar en puntos}
-\CommentTok{\# cardinales}
-\NormalTok{puntos\_cardinales }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(grados) \{}
-    \FunctionTok{case\_when}\NormalTok{(grados }\SpecialCharTok{\textgreater{}=} \FloatTok{337.5} \SpecialCharTok{|}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{22.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"N"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{22.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{67.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"NE"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{67.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{112.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"E"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{112.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{157.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"SE"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{157.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{202.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"S"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{202.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{247.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"SW"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{247.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{292.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"W"}\NormalTok{, grados }\SpecialCharTok{\textgreater{}=} \FloatTok{292.5} \SpecialCharTok{\&}\NormalTok{ grados }\SpecialCharTok{\textless{}}
-        \FloatTok{337.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"NW"}\NormalTok{)}
-\NormalTok{\}}
-
-\CommentTok{\# Análisis de velocidades}
-\NormalTok{datos\_vel }\OtherTok{\textless{}{-}}\NormalTok{ datos\_clasificados }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(velocidad\_viento)) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{clase\_velocidad =} \FunctionTok{cut}\NormalTok{(velocidad\_viento,}
-        \AttributeTok{breaks =} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{24}\NormalTok{, }\AttributeTok{by =} \DecValTok{3}\NormalTok{), }\AttributeTok{include.lowest =} \ConstantTok{TRUE}\NormalTok{,}
-        \AttributeTok{right =} \ConstantTok{FALSE}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{count}\NormalTok{(clase\_velocidad) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{porcentaje =} \DecValTok{100} \SpecialCharTok{*}\NormalTok{ n}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(n))}
-
-\CommentTok{\# Gráfico 1: Velocidad media}
-\NormalTok{g1 }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(datos\_vel, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ clase\_velocidad,}
-    \AttributeTok{y =}\NormalTok{ porcentaje)) }\SpecialCharTok{+} \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{stat =} \StringTok{"identity"}\NormalTok{,}
-    \AttributeTok{fill =} \StringTok{"skyblue"}\NormalTok{, }\AttributeTok{color =} \StringTok{"black"}\NormalTok{) }\SpecialCharTok{+}
-    \FunctionTok{labs}\NormalTok{(}\AttributeTok{x =} \StringTok{"Velocidad Media (m/s)"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Frecuencia \%"}\NormalTok{) }\SpecialCharTok{+}
-    \FunctionTok{theme\_minimal}\NormalTok{(}\AttributeTok{base\_size =} \DecValTok{13}\NormalTok{)}
-
-\CommentTok{\# Análisis de direcciones con tipos de}
-\CommentTok{\# viento}
-\NormalTok{datos\_dir }\OtherTok{\textless{}{-}}\NormalTok{ datos\_clasificados }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(direccion\_grados)) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{direccion\_cardinal =} \FunctionTok{puntos\_cardinales}\NormalTok{(direccion\_grados),}
-        \AttributeTok{tipo\_viento =} \FunctionTok{case\_when}\NormalTok{(direccion\_cardinal }\SpecialCharTok{\%in\%}
-            \FunctionTok{c}\NormalTok{(}\StringTok{"E"}\NormalTok{, }\StringTok{"SE"}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \StringTok{"Levante"}\NormalTok{, direccion\_cardinal }\SpecialCharTok{\%in\%}
-            \FunctionTok{c}\NormalTok{(}\StringTok{"W"}\NormalTok{) }\SpecialCharTok{\textasciitilde{}} \StringTok{"Poniente"}\NormalTok{, }\ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \StringTok{"Otro"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{count}\NormalTok{(direccion\_cardinal, tipo\_viento) }\SpecialCharTok{\%\textgreater{}\%}
-    \FunctionTok{mutate}\NormalTok{(}\AttributeTok{porcentaje =} \DecValTok{100} \SpecialCharTok{*}\NormalTok{ n}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(n), }\AttributeTok{direccion\_cardinal =} \FunctionTok{factor}\NormalTok{(direccion\_cardinal,}
-        \AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}\StringTok{"N"}\NormalTok{, }\StringTok{"NE"}\NormalTok{, }\StringTok{"E"}\NormalTok{, }\StringTok{"SE"}\NormalTok{,}
-            \StringTok{"S"}\NormalTok{, }\StringTok{"SW"}\NormalTok{, }\StringTok{"W"}\NormalTok{, }\StringTok{"NW"}\NormalTok{)))}
-
-\CommentTok{\# Gráfico 2: Dirección cardinal con}
-\CommentTok{\# colores por tipo de viento}
-\NormalTok{g2 }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(datos\_dir, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ direccion\_cardinal,}
-    \AttributeTok{y =}\NormalTok{ porcentaje, }\AttributeTok{fill =}\NormalTok{ tipo\_viento)) }\SpecialCharTok{+}
-    \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{stat =} \StringTok{"identity"}\NormalTok{, }\AttributeTok{color =} \StringTok{"black"}\NormalTok{) }\SpecialCharTok{+}
-    \FunctionTok{labs}\NormalTok{(}\AttributeTok{x =} \StringTok{"Dirección de Procedencia"}\NormalTok{,}
-        \AttributeTok{y =} \StringTok{"Frecuencia \%"}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{scale\_fill\_manual}\NormalTok{(}\AttributeTok{values =} \FunctionTok{c}\NormalTok{(}\AttributeTok{Levante =} \StringTok{"\#d62728"}\NormalTok{,}
-    \AttributeTok{Poniente =} \StringTok{"\#1f77b4"}\NormalTok{, }\AttributeTok{Otro =} \StringTok{"\#95A5A6"}\NormalTok{)) }\SpecialCharTok{+}
-    \FunctionTok{coord\_polar}\NormalTok{(}\AttributeTok{theta =} \StringTok{"x"}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{theme\_minimal}\NormalTok{(}\AttributeTok{base\_size =} \DecValTok{13}\NormalTok{) }\SpecialCharTok{+}
-    \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{"bottom"}\NormalTok{)}
-
-\NormalTok{gridExtra}\SpecialCharTok{::}\FunctionTok{grid.arrange}\NormalTok{(g1, g2, }\AttributeTok{ncol =} \DecValTok{2}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{figure}[h]
-
-{\centering \includegraphics{Levante_Analisys_files/figure-latex/frequency-analysis-1} 
+{\centering \includegraphics[width=0.75\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-10-2} 
 
 }
 
-\caption{Distribución de velocidades del viento y frecuencia por dirección cardinal}\label{fig:frequency-analysis}
+\caption{Distribución de variablees objetivo para el análisis de correlación}\label{fig:unnamed-chunk-10-2}
 \end{figure}
 
-\subsection{Análisis de eventos de viento}\label{anuxe1lisis-de-eventos-de-viento}
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-11-1} \end{center}
 
-\subsubsection{Duración e intensidad de episodios}\label{duraciuxf3n-e-intensidad-de-episodios}
+\begin{table}[!h]
+\centering
+\caption{\label{tab:unnamed-chunk-13}Modelo lineal simple de reclutamiento de coquina y viento de levante}
+\centering
+\begin{tabular}[t]{l|r|r|r|r|r|r}
+\hline
+Término & Coeficiente & Error estándar & Estadístico t & Valor p & IC inferior 95\% & IC superior 95\%\\
+\hline
+\cellcolor{gray!10}{(Intercept)} & \cellcolor{gray!10}{24.657} & \cellcolor{gray!10}{2.644} & \cellcolor{gray!10}{9.323810} & \cellcolor{gray!10}{0.000} & \cellcolor{gray!10}{19.413} & \cellcolor{gray!10}{29.901}\\
+\hline
+dias\_con\_evento & -0.418 & 0.277 & -1.508633 & 0.134 & -0.967 & 0.131\\
+\hline
+\end{tabular}
+\end{table}
+
+En primera instancia, no se observa una correlación lineal significativa entre el viento de levante y el reclutamiento, con un coeficiente de determinación muy bajo (R2 = 0.021), indicando escaso poder explicativo.
+
+A continuación, se procede a analizar la relación entre estas variables en una escala temporal diferente, específicamente a nivel semestral, evaluando la posible influencia del viento de levante sobre el reclutamiento de coquina.
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-15-1} \end{center}
+
+\begin{verbatim}
+## [1] "\n=== CORRELACIÓN POR SEMESTRE ==="
+\end{verbatim}
+
+\begin{table}[!h]
+\centering
+\begin{tabular}[t]{r|r|r}
+\hline
+semestre & correlacion & n\_semestres\\
+\hline
+\cellcolor{gray!10}{1} & \cellcolor{gray!10}{-0.1966243} & \cellcolor{gray!10}{10}\\
+\hline
+2 & 0.5225889 & 10\\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Modelos semestrales con interacción}\label{modelos-semestrales-con-interacciuxf3n}
+
+\begin{table}[!h]
+\centering
+\begin{tabular}[t]{l|l|r|r|r}
+\hline
+  & Modelo & R2\_ajustado & AIC & p\_value\\
+\hline
+\cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{-0.0554818} & \cellcolor{gray!10}{159.4193} & \cellcolor{gray!10}{0.9720995}\\
+\hline
+Cuadrático & Cuadrático & -0.0469758 & 160.1143 & 0.5739469\\
+\hline
+\cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{0.3456430} & \cellcolor{gray!10}{150.7142} & \cellcolor{gray!10}{0.0105642}\\
+\hline
+Interacción & Interacción & 0.4262550 & 148.8723 & 0.0074818\\
+\hline
+\end{tabular}
+\end{table}
+
+Figura \ref{fig:resutlm}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/resultlm-1} \end{center}
+
+El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (\emph{Donax trunculus}) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
+
+\subsubsection{Trabajo futuro}\label{trabajo-futuro}
+
+Incorporar otras variables predictoras como temperatura, clorofila, entre otras\ldots{}
+
+\newpage
+
+\section*{Referencias}\label{referencias}
+\addcontentsline{toc}{section}{Referencias}
+
+\phantomsection\label{refs}
+\begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-bartolome1998viento}
+Bartolomé López-Somoza, E. (1998). \emph{El viento de levante en el puerto}. Ayuntamiento de El Puerto de Santa María.
+
+\bibitem[\citeproctext]{ref-Delgado2018}
+Delgado, M., \& Silva, L. (2018). {Timing variations and effects of size on the reproductive output of the wedge clam Donax trunculus (L. 1758) in the littoral of Huelva (SW Spain)}. \emph{Journal of the Marine Biological Association of the United Kingdom}, \emph{98}(2), 341--350. \url{https://doi.org/10.1017/S0025315416001429}
+
+\end{CSLReferences}
 
 \end{document}

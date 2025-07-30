@@ -31,10 +31,10 @@ knitr::opts_chunk$set(echo=FALSE,
                       message = FALSE,
                       warning = FALSE,
                       fig.align = 'center',
-                      fig.pos = "h",
                       dev = 'jpeg',
+                      out.width="100%",
                       dpi = 300,
-                      tidy = TRUE,
+                      tidy = F,
                       tidy.opts = list(width.cutoff = 40))  # límite de ancho
 #XQuartz is a mess, put this in your onload to default to cairo instead
 options(bitmapType = "cairo") 
@@ -42,37 +42,82 @@ options(bitmapType = "cairo")
 # Lo mapas se hacen mas rapido
 ```
 
+
 # Contexto
 
-## Análisis de Vientos de Levante y Poniente
+### Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (*Donax trunculus*)
 
-Este documento presenta un análisis comprensivo de los patrones de viento de Levante y Poniente basado en datos meteorológicos del período 2013-2025. El análisis incluye la caracterización temporal, intensidad y duración de estos eventos atmosféricos.
+Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina *Donax trunculus*, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
 
-## Objetivo
+### Objetivo
 
-El objetivo de este trabajo es encontrar y cuantificar los patrones de viento y relacionarlos con variables poblacionales de Coquina *Donax trunculus* provenientes del monitoreo poblacional y pesquero que lleva a cabo el IEO en el marco del proyecto FEMP 04.
+El objetivo principal de este trabajo es identificar y cuantificar los patrones de viento dominantes y analizar su relación con parámetros poblacionales de *Donax trunculus*. Para ello, se emplean datos de monitoreo biológico y pesquero obtenidos por el Instituto Español de Oceanografía (IEO-CSIC) en el marco del proyecto FEMP 04, con énfasis en las dinámicas de reclutamiento observadas en el Golfo de Cádiz.
 
 
-## Metodología
 
-### Carga de librerías y datos
+\newpage
+
+# Metodología
 
 ```{r libraries, echo=TRUE}
-# Vector con todos los paquetes que necesitas
 paquetes <- c(
   "readr", "dplyr", "lubridate", "stringr", "purrr",
   "ggplot2", "tidyr", "gridExtra", "viridis", "scales",
-  "formatR"
-)
+  "formatR", "ggpubr", "ggthemes", "kableExtra", "sjPlot", 
+  "broom", "kableExtra"
+  )
 
 purrr::walk(paquetes, library, character.only = TRUE)
 ```
 
+### Datos de viento
 
-### Carga de datos
+El acceso al servicio de descargas de **Puertos del Estado** se hace desde la página web de oceanografía de [Puertos del Estado](http://www.puertos.es/es-es/oceanografia/Paginas/portus.aspx)
+
+Selección de estaciones y variables
+
+* En el sistema **DescargaPortus**, se suele seleccionar entre varias estaciones meteorológicas costeras.
+* Elegimos **cuatro puntos** ubicados frente a la costa del Parque de Doñana en la provincia de Cádiz (Figure \@ref(fig:mapa)).
+* Seleccionamos datos de **viento**, en particular **velocidad** y **dirección**.
+
+```{r mapa, out.width="95%", fig.cap= "Puntos seleccionados con la variable viento desde Puertos del Estado"}
+knitr::include_graphics("figures/mapa.png") 
+```
 
 
-```{r data-loading, echo=TRUE}
+Período y frecuencia de datos
+
+* Un **rango temporal** (por ejemplo 2013‑2025).
+* Desechar valores nulos (ej. ‑999.9) siguiendo las recomendaciones de limpieza del manual.
+
+Formato de descarga
+
+  * `.csv`en formato tabular con columnas como:
+  * Fecha (GMT)
+  * Velocidad del viento (m/s)
+  * Dirección del viento (grados meteorológicos)
+
+Calidad de datos
+
+  * Aplicamos filtros para descartar datos erróneos, como aquellos con velocidad negativa o direcciones fuera del rango 0–360º.
+
+Procesamiento en R
+
+* Finalmente, se importan en R usando funciones tipo `readr`, limpieza con `dplyr`, conversión de fechas con `lubridate`, etc.
+
+Flujo de trabajo
+
+| Etapa                       | Acción realizada                                      |
+| --------------------------- | ----------------------------------------------------- |
+| Selección de estaciones     | Cuatro puntos frente a Doñana (Cádiz)                 |
+| Variables                   | Viento: velocidad y dirección                         |
+| Periodo de interés          | Desde 2013 hasta el presente                          |
+| Formato de descarga         | CSV / delimitado con primer registro meta             |
+| Limpieza de datos           | Eliminación de “‑999.9” y NA                          |
+| Conversión de formatos      | Fecha GMT a `POSIXct` o `Date`                        |
+
+
+```{r data-loading}
 directorio <- "~/IEO/wind-recruitment-Dtrunculus/data"
 archivos <- c(
   "21405_40638_5028023_WIND_20130101124124_20250723114124.csv",
@@ -81,8 +126,11 @@ archivos <- c(
   "21405_40641_5030023_WIND_20130101124138_20250723114138.csv"
 )
 rutas_completas <- file.path(directorio, archivos)
+```
 
-# Función para leer y limpiar cada archivo
+
+```{r function1, warning=FALSE, echo=TRUE}
+#Funcion para leer todos los archivos.
 leer_archivo_viento <- function(archivo) {
   readr::read_tsv(archivo, skip = 1,
                   col_names = c("fecha_raw", 
@@ -101,14 +149,24 @@ leer_archivo_viento <- function(archivo) {
 datos_viento <- purrr::map_dfr(rutas_completas, leer_archivo_viento)
 ```
 
+Los registros de viento fueron clasificados en tres categorías: **Levante**, **Poniente** u **Otro**, en base a la siguiente regla propuesta por @bartolome1998viento:
 
-```{r glimpse, echo=TRUE}
-glimpse(datos_viento)
-```
+$$
+\text{tipo\_viento} =
+\begin{cases}
+\text{"Levante"} & \text{si } 4 \leq V < 40 \text{ y } 67.5^\circ \leq D \leq 157.5^\circ \\
+\text{"Poniente"} & \text{si } 8 \leq V < 40 \text{ y } 247.5^\circ \leq D \leq 292.5^\circ \\
+\text{"Otro"} & \text{en cualquier otro caso}
+\end{cases}
+$$
+Donde:
 
-### Limpieza y clasificación de datos
+* $V$ es la **velocidad del viento** en m/s.
+* $D$ es la **dirección del viento** en grados meteorológicos.
 
-```{r data-cleaning, echo=TRUE}
+Esta clasificación se implementó en R con `case_when()` para etiquetar automáticamente cada observación horaria.
+
+```{r data-cleaning}
 datos_limpios <- datos_viento %>%
   filter(!is.na(fecha),
          !is.na(velocidad_viento),
@@ -117,69 +175,7 @@ datos_limpios <- datos_viento %>%
          direccion_grados != -999.9)
 ```
 
-### Rosa de Vientos
-
-Todos los analisis y criterios de clasificacion de vientos fueron obtenidos de @bartolome1998viento
-
-```{r wind-rose-classification, echo=TRUE, fig.cap="Rosa de vientos mostrando la clasificación de sectores para Levante y Poniente"}
-# Crear la clasificación de sectores con grados
-sectores_clasificacion <- data.frame(
-  sector = c("Norte", "Noreste", "Este", "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste"),
-  grados_inicio = c(337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5),
-  grados_fin = c(22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5),
-  tipo_viento = c("Otro", "Otro", "Levante", "Levante", "Otro", "Otro", "Poniente", "Otro"),
-  valor = 1,
-  etiqueta_grados = c("337.5°-22.5°", "22.5°-67.5°", "67.5°-112.5°", "112.5°-157.5°", 
-                      "157.5°-202.5°", "202.5°-247.5°", "247.5°-292.5°", "292.5°-337.5°")
-) %>%
-  mutate(
-    sector = factor(sector, levels = c("Norte", "Noreste", "Este", "Sureste", 
-                                       "Sur", "Suroeste", "Oeste", "Noroeste")),
-    color_sector = case_when(
-      tipo_viento == "Levante" ~ "#E74C3C",
-      tipo_viento == "Poniente" ~ "#3498DB",
-      TRUE ~ "#95A5A6"
-    )
-  )
-
-rosa_polar_clasificacion <- ggplot(sectores_clasificacion, aes(x = sector, y = valor, fill = tipo_viento)) +
-  geom_col(width = 0.9, color = "white", size = 1) +
-  scale_fill_manual(
-    values = c("Levante" = "#E74C3C", "Poniente" = "#3498DB", "Otro" = "#95A5A6"),
-    name = "Clasificación"
-  ) +
-  geom_text(aes(label = paste0(sector, "\n", etiqueta_grados)), 
-            position = position_stack(vjust = 0.5), 
-            color = "white", size = 3, fontface = "bold", lineheight = 0.8) +
-  labs(
-    title = "Rosa de Vientos - Clasificación por Sectores",
-    subtitle = "Levante: Este (67.5°-112.5°) y Sureste (112.5°-157.5°) | Poniente: Oeste (247.5°-292.5°)",
-    x = "",
-    y = ""
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-    plot.subtitle = element_text(size = 12, hjust = 0.5, margin = margin(b = 20)),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(),
-    panel.grid = element_blank(),
-    legend.position = "bottom",
-    legend.title = element_text(size = 12, face = "bold"),
-    legend.text = element_text(size = 11)
-  ) +
-  coord_polar(theta = "x", start = -pi/8, direction = 1) +
-  theme(
-    panel.grid.major.x = element_line(color = "lightblue", linetype = "dotted"),
-    panel.grid.major.y = element_line(color = "lightblue", linetype = "dotted"),
-    axis.text.x = element_blank()
-  ) +
-  scale_y_continuous(limits = c(0, 1.3))
-
-rosa_polar_clasificacion
-```
-
-```{r wind-classification, echo=TRUE}
+```{r wind-classification}
 # Clasificar los datos de viento
 datos_clasificados <- datos_limpios %>%
   mutate(
@@ -193,9 +189,94 @@ datos_clasificados <- datos_limpios %>%
   )
 ```
 
-### Análisis de frecuencias
+En terminos direccionales, la rosa de los vientos queda clasificada de la siguiente forma:
 
-```{r frequency-analysis, echo=TRUE, fig.cap="Distribución de velocidades del viento y frecuencia por dirección cardinal"}
+```{r windrose, fig.cap= "Rosa de vientos mostrando la clasificación de sectores para Levante y Poniente"}
+sectores_clasificacion <- data.frame(
+  sector = c("Norte", "Noreste", "Este",
+             "Sureste", "Sur", "Suroeste", "Oeste", "Noroeste"),
+  grados_inicio = c(337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5),
+  grados_fin = c(22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5),
+  tipo_viento = c("Otro", "Otro", "Levante", "Levante",
+                  "Otro", "Otro", "Poniente", "Otro"),
+  valor = 1,
+  etiqueta_grados = c("337.5°-22.5°", 
+                      "22.5°-67.5°", 
+                      "67.5°-112.5°",
+                      "112.5°-157.5°", 
+                      "157.5°-202.5°", 
+                      "202.5°-247.5°",
+                      "247.5°-292.5°",
+                      "292.5°-337.5°")
+) %>%
+  mutate(
+    sector = factor(sector, levels = c("Norte", "Noreste", "Este", "Sureste", 
+                                       "Sur", "Suroeste", "Oeste", "Noroeste")),
+    color_sector = case_when(
+      tipo_viento == "Levante" ~ "#E74C3C",   
+      tipo_viento == "Poniente" ~ "#3498DB",    
+      TRUE ~ "#95A5A6"                        
+    )
+  )
+
+rosa_polar_clasificacion <- ggplot(sectores_clasificacion, 
+                                   aes(x = sector, 
+                                       y = valor, 
+                                       fill = tipo_viento)) +
+  geom_col(width = 0.9, color = "white", size = 1) +
+  scale_fill_manual(
+    values = c("Levante" = "#E74C3C", 
+               "Poniente" = "#3498DB",
+               "Otro" = "#95A5A6"),
+    name = "Tipo de viento"
+  ) +
+  geom_text(aes(y = 1.15, label = paste0(sector, "\n", etiqueta_grados)), 
+            color = "black", size = 3,
+            fontface = "bold", 
+            lineheight = 0.8) +
+  labs(title = "", x = "", y = "") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, margin = margin(b = 20)),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11)
+  ) +
+  coord_polar(theta = "x", start = -pi/8, direction = 1) +
+  theme(
+    panel.grid.major.x = element_line(color = "lightblue", 
+                                      linetype = "dotted"),
+    panel.grid.major.y = element_line(color = "lightblue", 
+                                      linetype = "dotted"),
+    axis.text.x = element_blank()
+  ) +
+  scale_y_continuous(limits = c(0, 1.3))
+
+rosa_polar_clasificacion
+```
+
+
+## Datos de variables poblacionales de coquina
+
+Utilizaremos el indice de reclutamiento que provien e de las tallas , calculado como la proporcion de individuos `< 15 mm`.
+
+
+```{r warning=FALSE}
+datos <- readRDS("data/index_recruit_2013_2025.RDS")
+```
+
+\newpage
+
+
+# Resultados
+
+
+Analizamos la frecuencia de eventos de levante y poniente en la Figura \@ref(fig:frequency-analysis2).
+
+```{r frequency-analysis, fig.cap="Distribución de velocidades del viento y frecuencia por dirección cardinal"}
 # Función para clasificar en puntos cardinales
 puntos_cardinales <- function(grados) {
   case_when(
@@ -210,7 +291,6 @@ puntos_cardinales <- function(grados) {
   )
 }
 
-# Análisis de velocidades
 datos_vel <- datos_clasificados %>%
   filter(!is.na(velocidad_viento)) %>%
   mutate(clase_velocidad = cut(
@@ -222,13 +302,13 @@ datos_vel <- datos_clasificados %>%
   count(clase_velocidad) %>%
   mutate(porcentaje = 100 * n / sum(n))
 
-# Gráfico 1: Velocidad media
 g1 <- ggplot(datos_vel, aes(x = clase_velocidad, y = porcentaje)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black") +
   labs(x = "Velocidad Media (m/s)", y = "Frecuencia %") +
-  theme_minimal(base_size = 13)
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
-# Análisis de direcciones con tipos de viento
+
 datos_dir <- datos_clasificados %>%
   filter(!is.na(direccion_grados)) %>%
   mutate(
@@ -248,23 +328,594 @@ datos_dir <- datos_clasificados %>%
     )
   )
 
-# Gráfico 2: Dirección cardinal con colores por tipo de viento
 g2 <- ggplot(datos_dir, aes(x = direccion_cardinal, 
                             y = porcentaje, 
                             fill = tipo_viento)) +
   geom_bar(stat = "identity", color = "black") +
   labs(x = "Dirección de Procedencia", y = "Frecuencia %") +
-  scale_fill_manual(values = c("Levante" = "#d62728", "Poniente" = "#1f77b4", "Otro" = "#95A5A6")) +
+  scale_fill_manual(values = c("Levante" = "#d62728",
+                               "Poniente" = "#1f77b4",
+                               "Otro" = "#95A5A6")) +
   coord_polar(theta = "x") +
   theme_minimal(base_size = 13) +
   theme(legend.position = "bottom")
-
-gridExtra::grid.arrange(g1, g2, ncol = 2)
 ```
 
-### Análisis de eventos de viento
+```{r frequency-analysis2,out.width="60%", fig.height=6, fig.width=4, fig.cap="Distribución de velocidades del viento y frecuencia por dirección cardinal"}
+gridExtra::grid.arrange(g1, g2, ncol = 1)
+```
 
-### Duración e intensidad de episodios
+\newpage
 
+También visualizamos la relación entre intensisdad y dias con levante y poniente en la Figura \@ref(fig:intvel)
+
+```{r}
+datos_eventos <- datos_clasificados %>%
+  filter(tipo_viento %in% c("Levante", "Poniente")) %>%
+  arrange(fecha) %>%
+  group_by(tipo_viento) %>%
+  mutate(
+    dif_hora = as.numeric(difftime(fecha, lag(fecha), units = "hours")),
+    nueva_serie = is.na(dif_hora) | dif_hora > 1,
+    grupo_evento = cumsum(nueva_serie)
+  ) %>%
+  ungroup()
+
+# Calcular duración y características por evento
+resumen_eventos <- datos_eventos %>%
+  group_by(tipo_viento, grupo_evento) %>%
+  summarise(
+    inicio = min(fecha),
+    fin = max(fecha),
+    duracion_dias = as.numeric(difftime(fin, inicio, units = "days")) + 1,
+    velocidad_media_episodio = mean(velocidad_viento, na.rm = TRUE),
+    velocidad_maxima = max(velocidad_viento, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+
+```{r intvel, out.width="60%", fig.cap="Relación entre intensisdad y dias con levante y poniente"}
+grafico_duracion_intensidad <- ggplot(resumen_eventos,
+                                      aes(x = duracion_dias, 
+                                          y = velocidad_media_episodio,
+                                          color = tipo_viento, 
+                                          size = velocidad_maxima)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = c("Levante" = "#E74C3C", "Poniente" = "#3498DB")) +
+  scale_size_continuous(name = "Vel. Máxima\n(m/s)", range = c(1, 8)) +
+  labs(
+    x = "Duración (días)",
+    y = "Velocidad Media del Episodio (m/s)",
+    color = "Tipo de Viento"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "none"
+  ) +
+  facet_wrap(~tipo_viento)
+
+grafico_duracion_intensidad
+```
+Promedio por mes de los días con levante y poniente a través de los meses en la Figura \@ref(fig:intvel2).
+
+```{r intvel2, out.width="60%", fig.cap="Relación entre intensisdad y dias con levante y poniente"}
+# Crear año, mes, y día como columnas separadas
+resumen_dias <- datos_clasificados %>%
+  mutate(
+    fecha_dia = as_date(fecha),
+    año = year(fecha),
+    mes = month(fecha, label = TRUE, abbr = TRUE)
+  ) %>%
+  filter(tipo_viento %in% c("Levante", "Poniente")) %>%
+  group_by(año, mes, tipo_viento, fecha_dia) %>%
+  summarise(.groups = "drop") %>%
+  count(año, mes, tipo_viento, name = "dias_con_evento")
+
+ggplot(resumen_dias, aes(x = mes, 
+                         y = dias_con_evento, 
+                         fill = tipo_viento)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  #facet_wrap(~año, ncol = 4) +
+  scale_fill_manual(values = c("Levante" = "red", 
+                               "Poniente" = "blue")) +
+  labs(
+    x = "",
+    y = "Días con evento de viento",
+    fill = "Tipo de viento"
+  ) +
+  theme_minimal(base_size = 12)+
+  theme(axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust = 1),
+        legend.position = "bottom")+
+  coord_flip()
+```
+\newpage
+
+Ahora por año y por mes
+
+```{r fig.height=8, fig.width=7, out.width="100%"}
+
+grafico_levante <- resumen_dias %>%
+  filter(tipo_viento == "Levante") %>%
+  ggplot(aes(x = mes, y = dias_con_evento)) +
+  geom_col(fill = "#E74C3C", width = 0.6) +
+  labs(
+    title = "LEVANTE",
+    y = "Días con eventos",
+    x = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 9),
+    axis.title.y = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(size = 10, face = "bold")
+  ) +
+  facet_wrap(~año, ncol = 3) +
+  geom_text(aes(label = dias_con_evento), 
+            hjust = -0.3, size = 3) +
+  coord_flip()
+
+# Crear gráfico para Poniente
+grafico_poniente <- resumen_dias %>%
+  filter(tipo_viento == "Poniente") %>%
+  ggplot(aes(x = mes, y = dias_con_evento)) +
+  geom_col(fill = "#3498DB", width = 0.6) +
+  labs(
+    title = "PONIENTE",
+    y = "Días con eventos",
+    x = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 9),
+    axis.title.y = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(size = 10, face = "bold")
+  ) +
+  facet_wrap(~año, ncol = 3) +
+  geom_text(aes(label = dias_con_evento), 
+            hjust = -0.5, size = 3) +
+  coord_flip()
+
+# Combinar ambos gráficos
+grafico_combinado <- grid.arrange(grafico_levante, 
+                                  grafico_poniente, ncol = 2)
+```
+
+```{r fig.height=4, fig.width=6}
+levante_data <- resumen_dias %>% filter(tipo_viento == "Levante")
+poniente_data <- resumen_dias %>% filter(tipo_viento == "Poniente")
+p1 <- ggplot(levante_data, aes(x = mes, y = factor(año), fill = dias_con_evento)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(
+    colors = c("#D3D3D3", "#E74C3C"),
+    name = "Días\nLevante"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+# Heatmap Poniente
+p2 <- ggplot(poniente_data, aes(x = mes, y = factor(año), fill = dias_con_evento)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(
+    colors = c("#D3D3D3", "#3498DB"),
+    name = "Días\nPoniente"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+# Mostrar juntos
+egg::ggarrange(p1, p2, ncol = 2)
+
+```
+
+
+```{r}
+serie_mensual <- resumen_dias %>%
+  mutate(
+    mes_num = match(mes, month.abb),  # Convertir mes abreviado a número
+    año_mes = as.Date(paste(año, mes_num, "01", sep = "-"))
+  )
+# Filtrar datos por tipo de viento
+serie_levante <- serie_mensual %>% filter(tipo_viento == "Levante")
+serie_poniente <- serie_mensual %>% filter(tipo_viento == "Poniente")
+
+# Gráfico Levante
+g_levante <- ggplot(serie_levante, 
+                    aes(x = año_mes, 
+                        y = dias_con_evento)) +
+  geom_point(color = "#E74C3C", size = 2) +
+  geom_smooth(method = "loess", color = "#E74C3C", 
+              span=0.1) +
+  labs(title = "Levante", 
+       x = "Fecha", 
+       y = "N° de Eventos por Mes") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 months")
+
+# Gráfico Poniente
+g_poniente <- ggplot(serie_poniente, 
+                     aes(x = año_mes, 
+                         y = dias_con_evento)) +
+  geom_point(color = "#3498DB", size = 2) +
+  geom_smooth(method = "loess", color = "#3498DB", 
+              span=0.1) +
+  labs(title = "Poniente", 
+       x = "Fecha", 
+       y = "N° de Eventos por Mes") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_date(date_labels = "%Y-%m", date_breaks = "6 months")
+
+fig_comb <- ggarrange(
+  g_levante, g_poniente,
+  ncol = 1, nrow = 2,
+  common.legend = FALSE
+)
+fig_comb
+
+```
+
+
+```{r}
+# PASO 9: Preparar datos para serie anual
+# Agrupar por año y tipo de viento
+serie_anual <- resumen_dias %>%
+  group_by(año, tipo_viento) %>%
+  summarise(dias_con_evento = sum(dias_con_evento), .groups = "drop")
+
+# Crear gráfico de líneas anual
+grafico_lineas_anual <- ggplot(serie_anual, 
+                               aes(x = año,
+                                   y = dias_con_evento, 
+                                   color = tipo_viento)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm")+
+  scale_color_manual(values = c("Levante" = "#E74C3C", "Poniente" = "#3498DB")) +
+  labs(
+    x = "",
+    y = "Número de Días con Evento",
+    color = "Tipo de Viento"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  ) +
+  scale_x_continuous(breaks = 2013:2024)+
+  xlim(2013,2024)
+# Mostrar gráfico
+grafico_lineas_anual
+```
+\newpage
+
+### Series temporales del monitoreo poblacional de coquina
+
+```{r warning=FALSE, fig.height=4, fig.width=8}
+ggplot(datos %>% 
+         drop_na(), aes(x = mes_num, y = meand15)) +
+  geom_point(color = "#2C3E50", 
+             alpha = 0.7, 
+             size = 2) +
+  geom_smooth(method = "lm", se = T) +  
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = month.abb,
+    limits = c(1, 12)
+  ) +
+  labs(
+    x = "",
+    y = "d15"
+  ) +
+  theme_few(base_size = 8) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    panel.grid.minor = element_blank()
+  ) +
+  facet_wrap(~ANO, nrow = 2) +
+  ylim(0, 75)
+
+```
+
+El plot muestra una marcada estacionalidad de los reclutamientos, con un pulso posterior a los meses estivales como lo indica @Delgado2018 en la Figura \@ref(fig:ciclo).
+
+```{r ciclo, out.width="75%", fig.cap= "Schematic representation of the reproductive cycle, periods of emission of gametes and related recruitment events in populations of D. trunculus from SW Spain. Black symbols represent the C1 cohort (from February-March) and grey symbols represent the C2 cohort (from July)"}
+knitr::include_graphics("figures/ciclo.png") 
+```
+\newpage
+
+## Modelos de correlacion entre Reclutamiento y Viento de Levante
+
+Uno las bases que estan en los objetos `serie_levante` y `datos`
+
+```{r}
+glimpse(serie_levante)
+glimpse(datos)
+```
+
+```{r}
+tabla_d15 <- datos %>%
+  rename(
+    año = ANO
+  )
+datos_unidos <- serie_levante %>%
+  left_join(tabla_d15, by = c("año", "mes_num"))
+
+```
+
+
+```{r out.width="75%", fig.cap="Distribución de variablees objetivo para el análisis de correlación"}
+hist(datos_unidos$dias_con_evento)
+hist(datos_unidos$meand15)
+```
+
+
+```{r}
+# Serie temporal para ver patrones estacionales
+ggplot(datos_unidos, aes(x = año_mes)) +
+  geom_line(aes(y = dias_con_evento, 
+                color = "Días Levante")) +
+  geom_line(aes(y = meand15, 
+                color = "Reclutamiento")) +
+  scale_y_continuous(sec.axis = sec_axis(~., 
+                                         name = "Reclutamiento")) +
+  labs(title = "", x = "") +
+  theme_minimal()+
+  theme(legend.position = "bottom")
+```
+
+```{r}
+# Remover NAs para el análisis
+levante_clean <- datos_unidos %>% 
+  filter(!is.na(meand15))
+```
+
+
+```{r}
+# Modelo lineal simple
+modelo <- lm(meand15 ~ dias_con_evento, data = levante_clean)
+
+resumen <- broom::tidy(modelo, conf.int = TRUE)
+
+resumen <- resumen %>%
+  mutate(across(c(estimate, std.error, conf.low, conf.high, p.value), ~round(.x, 3)))
+colnames(resumen) <- c("Término", 
+                       "Coeficiente", 
+                       "Error estándar",
+                       "Estadístico t", "Valor p",
+                       "IC inferior 95%", 
+                       "IC superior 95%")
+
+resumen %>%
+  kbl(caption = "Modelo lineal simple de reclutamiento de coquina y viento de levante") %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+En primera instancia, no se observa una correlación lineal significativa entre el viento de levante y el reclutamiento, con un coeficiente de determinación muy bajo (R2  = 0.021), indicando escaso poder explicativo.
+
+A continuación, se procede a analizar la relación entre estas variables en una escala temporal diferente, específicamente a nivel semestral, evaluando la posible influencia del viento de levante sobre el reclutamiento de coquina.
+
+```{r}
+# 1. AGREGACIÓN A ESCALA SEMESTRAL
+datos_semestral <- levante_clean %>%
+  mutate(
+    # Crear variable semestre
+    semestre = case_when(
+      mes %in% c("Jan", "Feb", "Mar", "Apr", "May", "Jun") ~ 1,
+      mes %in% c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec") ~ 2
+    ),
+    # Crear identificador año-semestre
+    año_semestre = paste(año, semestre, sep = "_")
+  ) %>%
+  # Agrupar y sumarizar por semestre
+  group_by(año, semestre, año_semestre) %>%
+  summarise(
+    # Sumar días de viento en el semestre
+    dias_viento_semestre = sum(dias_con_evento, na.rm = TRUE),
+    # Promedio de reclutamiento (removiendo NAs)
+    reclutamiento_promedio = mean(meand15, na.rm = TRUE),
+    # Mediana de reclutamiento 
+    reclutamiento_mediana = median(meand15, na.rm = TRUE),
+    # Suma de reclutamiento
+    reclutamiento_suma = sum(meand15, na.rm = TRUE),
+    # Número de observaciones válidas
+    n_obs_validas = sum(!is.na(meand15)),
+    .groups = 'drop'
+  ) %>%
+  # Solo mantener semestres con datos válidos de reclutamiento
+  filter(n_obs_validas > 0, !is.infinite(reclutamiento_promedio))
+```
+
+```{r}
+datos_semestral$fecha_semestre <- as.Date(paste(datos_semestral$año, 
+                                               ifelse(datos_semestral$semestre == 1, "06", "12"), 
+                                               "01", sep = "-"))
+
+p2 <- ggplot(datos_semestral, aes(x = fecha_semestre)) +
+  geom_line(aes(y = scale(dias_viento_semestre), 
+                color = "Viento Levante"), 
+            size = 1) +
+  geom_line(aes(y = scale(reclutamiento_promedio), 
+                color = "Reclutamiento"), 
+            size = 1) +
+  labs(
+    title = "Series temporales semestrales (estandarizadas)",
+    x = "Fecha (semestre)",
+    y = "Valores estandarizados",
+    color = "Variable"
+  ) +
+  scale_color_manual(values = c("Viento Levante" = "steelblue", "Reclutamiento" = "darkred")) +
+  theme_minimal()
+
+print(p2)
+```
+
+
+```{r}
+# Correlación por semestre
+cor_por_semestre <- datos_semestral %>%
+  group_by(semestre) %>%
+  summarise(
+    correlacion = cor(dias_viento_semestre, reclutamiento_promedio, use = "complete.obs"),
+    n_semestres = n(),
+    .groups = 'drop'
+  )
+
+print("\n=== CORRELACIÓN POR SEMESTRE ===")
+kableExtra::kbl(cor_por_semestre) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+
+```
+
+### Modelos semestrales con interacción
+
+```{r}
+# Modelo lineal semestral
+modelo_lineal_sem <- lm(reclutamiento_promedio ~ dias_viento_semestre, 
+                       data = datos_semestral)
+
+# Modelo cuadrático semestral  
+modelo_cuad_sem <- lm(reclutamiento_promedio ~ dias_viento_semestre + I(dias_viento_semestre^2), 
+                     data = datos_semestral)
+
+# Modelo con efecto del semestre
+modelo_semestre <- lm(reclutamiento_promedio ~ dias_viento_semestre + factor(semestre), 
+                     data = datos_semestral)
+
+# Modelo con interacción semestre
+modelo_interaccion_sem <- lm(reclutamiento_promedio ~ dias_viento_semestre * factor(semestre), 
+                           data = datos_semestral)
+modelos <- list(
+  "Lineal" = modelo_lineal_sem,
+  "Cuadrático" = modelo_cuad_sem, 
+  "Con semestre" = modelo_semestre,
+  "Interacción" = modelo_interaccion_sem
+)
+
+# Tabla comparativa
+comparacion <- data.frame(
+  Modelo = names(modelos),
+  R2_ajustado = sapply(modelos, function(m) summary(m)$adj.r.squared),
+  AIC = sapply(modelos, AIC),
+  p_value = sapply(modelos, function(m) {
+    f_stat <- summary(m)$fstatistic
+    if(!is.null(f_stat)) pf(f_stat[1], f_stat[2], f_stat[3], lower.tail = FALSE) else NA
+  })
+)
+
+kableExtra::kbl(comparacion) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+Figura \@ref(fig:resutlm)
+
+```{r resultlm, fig.caption = "Cada punto = un semestre (n=20). Modelo: Reclutamiento ~ Viento × Semestre"}
+# Crear datos para las líneas de regresión
+rango_viento <- seq(min(datos_semestral$dias_viento_semestre), 
+                   max(datos_semestral$dias_viento_semestre), 
+                   length.out = 100)
+
+# Predicciones para cada semestre
+# Crear el data.frame para predecir
+nuevo_df <- expand.grid(
+  dias_viento_semestre = rango_viento,
+  semestre = c(1, 2)
+)
+# Importante: convertir 'semestre' a factor para que encaje con el modelo
+nuevo_df$semestre <- factor(nuevo_df$semestre)
+
+# Usar el modelo con interacción
+nuevo_df$reclutamiento_pred <- predict(modelo_interaccion_sem, newdata = nuevo_df)
+
+# Gráfico principal
+p_final <- ggplot() +
+  # Puntos observados
+    geom_point(data = datos_semestral, 
+             aes(x = dias_viento_semestre, y = reclutamiento_promedio, 
+                 color = factor(semestre), shape = factor(semestre)), 
+             size = 4, alpha = 0.8) +
+  
+  # # Líneas de regresión
+    geom_line(data = nuevo_df, 
+            aes(x = dias_viento_semestre, 
+                y = reclutamiento_pred,
+                color = factor(semestre)), 
+            size = 1.2) +
+  # Intervalos de confianza
+  geom_smooth(data = filter(datos_semestral, semestre == 1),
+              aes(x = dias_viento_semestre, y = reclutamiento_promedio),
+              method = "lm", se = TRUE, alpha = 0.2, color = "darkred") +
+  
+  geom_smooth(data = filter(datos_semestral, semestre == 2),
+              aes(x = dias_viento_semestre, y = reclutamiento_promedio),
+              method = "lm", se = TRUE, alpha = 0.2, color = "steelblue") +
+  
+  # Anotaciones con las ecuaciones
+  annotate("text", x = 65, y = 20, 
+           label = "Semestre 1 (Ene-Jun):\nReclut = 21.8 - 0.16×Viento\n(Efecto NEGATIVO)", 
+           color = "darkred", size = 3.5, hjust = 0, fontface = "bold") +
+  
+  annotate("text", x = 35, y = 40, 
+           label = "Semestre 2 (Jul-Dic):\nReclut = 10.2 + 0.40×Viento\n(Efecto POSITIVO)", 
+           color = "steelblue", size = 3.5, hjust = 0, fontface = "bold") +
+  
+  # Configuración estética
+  scale_color_manual(values = c("1" = "darkred", "2" = "steelblue"),
+                     labels = c("1" = "Ene-Jun (Reproductivo)", 
+                               "2" = "Jul-Dic (Crecimiento)")) +
+  
+  scale_shape_manual(values = c("1" = 16, "2" = 17),
+                     labels = c("1" = "Ene-Jun (Reproductivo)", 
+                               "2" = "Jul-Dic (Crecimiento)")) +
+  
+  labs(
+    title = "Efectos opuestos del viento de Levante según el período del año",
+    subtitle = "R² = 41% | p < 0.01 | Interacción p = 0.075",
+    x = "Días de viento de Levante por semestre",
+    y = "Reclutamiento promedio de coquina",
+    color = "Período",
+    shape = "Período"
+  ) +
+  
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11, color = "gray40"),
+    legend.title = element_text(face = "bold")
+  )
+
+p_final
+```
+
+
+El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (*Donax trunculus*) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
+
+
+### Trabajo futuro
+
+Incorporar otras variables predictoras como temperatura, clorofila, entre otras...
+
+
+\newpage
 
 # Referencias
