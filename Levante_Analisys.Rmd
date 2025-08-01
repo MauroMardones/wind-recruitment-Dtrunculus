@@ -45,11 +45,8 @@ options(bitmapType = "cairo")
 
 # Contexto
 
-### Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (*Donax trunculus*)
+Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (*Donax trunculus*). Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina *Donax trunculus*, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
 
-Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina *Donax trunculus*, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
-
-### Objetivo
 
 El objetivo principal de este trabajo es identificar y cuantificar los patrones de viento dominantes y analizar su relación con parámetros poblacionales de *Donax trunculus*. Para ello, se emplean datos de monitoreo biológico y pesquero obtenidos por el Instituto Español de Oceanografía (IEO-CSIC) en el marco del proyecto FEMP 04, con énfasis en las dinámicas de reclutamiento observadas en el Golfo de Cádiz.
 
@@ -66,6 +63,21 @@ paquetes <- c(
   "formatR", "ggpubr", "ggthemes", "kableExtra", "sjPlot", 
   "broom", "kableExtra"
   )
+
+
+# Análisis de Series de Tiempo para Viento de Levante
+# Carga de librerías necesarias
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(forecast)
+library(tseries)
+library(seasonal)
+library(zoo)
+library(gridExtra)
+library(corrplot)
+library(plotly)
+
 
 purrr::walk(paquetes, library, character.only = TRUE)
 ```
@@ -92,7 +104,7 @@ Período y frecuencia de datos
 
 Formato de descarga
 
-  * `.csv`en formato tabular con columnas como:
+  * `.csv` en formato tabular con columnas como:
   * Fecha (GMT)
   * Velocidad del viento (m/s)
   * Dirección del viento (grados meteorológicos)
@@ -117,7 +129,7 @@ Flujo de trabajo
 | Conversión de formatos      | Fecha GMT a `POSIXct` o `Date`                        |
 
 
-```{r data-loading}
+```{r data-loading, warning=FALSE, echo=TRUE}
 directorio <- "~/IEO/wind-recruitment-Dtrunculus/data"
 archivos <- c(
   "21405_40638_5028023_WIND_20130101124124_20250723114124.csv",
@@ -126,10 +138,7 @@ archivos <- c(
   "21405_40641_5030023_WIND_20130101124138_20250723114138.csv"
 )
 rutas_completas <- file.path(directorio, archivos)
-```
 
-
-```{r function1, warning=FALSE, echo=TRUE}
 #Funcion para leer todos los archivos.
 leer_archivo_viento <- function(archivo) {
   readr::read_tsv(archivo, skip = 1,
@@ -146,7 +155,8 @@ leer_archivo_viento <- function(archivo) {
     dplyr::select(fecha, velocidad_viento, direccion_grados)
 }
 
-datos_viento <- purrr::map_dfr(rutas_completas, leer_archivo_viento)
+datos_viento <- purrr::map_dfr(rutas_completas, 
+                               leer_archivo_viento)
 ```
 
 Los registros de viento fueron clasificados en tres categorías: **Levante**, **Poniente** u **Otro**, en base a la siguiente regla propuesta por @bartolome1998viento:
@@ -175,7 +185,7 @@ datos_limpios <- datos_viento %>%
          direccion_grados != -999.9)
 ```
 
-```{r wind-classification}
+```{r wind-classification, echo=TRUE}
 # Clasificar los datos de viento
 datos_clasificados <- datos_limpios %>%
   mutate(
@@ -911,10 +921,720 @@ p_final
 El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (*Donax trunculus*) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
 
 
+### Series de Tiempo 
+
+
+Crear métricas anuales del viento Levante
+```{r}
+# PASO 1: Crear serie_diaria desde datos originales
+# Filtrar solo datos de viento Levante
+datos_levante <- datos_clasificados %>%
+  filter(tipo_viento == "Levante") %>%
+  arrange(fecha)
+
+# Agregar datos por día (promedio diario)
+serie_diaria <- datos_levante %>%
+  mutate(fecha_dia = as.Date(fecha)) %>%
+  group_by(fecha_dia) %>%
+  summarise(
+    velocidad_promedio = mean(velocidad_viento, na.rm = TRUE),
+    direccion_promedio = mean(direccion_grados, na.rm = TRUE),
+    n_observaciones = n(),
+    .groups = 'drop'
+  ) %>%
+  filter(!is.na(velocidad_promedio))
+```
+
+
+```{r}
+# Crear datos anuales agregados
+viento_anual <- serie_diaria %>%
+  mutate(año = year(fecha_dia)) %>%
+  group_by(año) %>%
+  summarise(
+    velocidad_media = mean(velocidad_promedio, na.rm = TRUE),
+    velocidad_max = max(velocidad_promedio, na.rm = TRUE),
+    velocidad_min = min(velocidad_promedio, na.rm = TRUE),
+    velocidad_percentil95 = quantile(velocidad_promedio, 0.95, na.rm = TRUE),
+    velocidad_percentil75 = quantile(velocidad_promedio, 0.75, na.rm = TRUE),
+    velocidad_percentil25 = quantile(velocidad_promedio, 0.25, na.rm = TRUE),
+    dias_viento_fuerte = sum(velocidad_promedio > quantile(velocidad_promedio, 0.8, na.rm = TRUE), na.rm = TRUE),
+    variabilidad = sd(velocidad_promedio, na.rm = TRUE),
+    n_dias = n(),
+    .groups = 'drop'
+  )   
+summary(viento_anual)
+```
+
+
+
+**Velocidad media del viento anual**
+
+Es el promedio de las velocidades diarias dentro de un año:
+$$
+\bar{v} = \frac{1}{n} \sum_{i=1}^{n} v_i
+$$
+
+Donde $v_i$ es la velocidad del viento el día $i$ y $n$ es el número de días del año.
+
+ **Velocidad máxima del viento anual**
+   Valor máximo observado en el año:
+
+$$
+v_{\text{max}} = \max(v_1, v_2, \dots, v_n)
+$$
+**Velocidad mínima del viento anual**
+Valor mínimo observado en el año:
+
+$$
+v_{\text{min}} = \min(v_1, v_2, \dots, v_n)
+$$
+
+**Percentil 95 (P95)**
+ Valor por debajo del cual cae el 95% de las observaciones:
+
+$$
+P_{95} = \text{percentil}_{95}(v_1, v_2, \dots, v_n)
+$$
+
+**Percentil 75 (P75)**
+   Valor por debajo del cual cae el 75% de las observaciones:
+
+$$
+P_{75} = \text{percentil}_{75}(v_1, v_2, \dots, v_n)
+$$
+
+**Percentil 25 (P25)**
+Valor por debajo del cual cae el 25% de las observaciones:
+
+$$
+P_{25} = \text{percentil}_{25}(v_1, v_2, \dots, v_n)
+$$
+
+**Días con viento fuerte (por encima del percentil 80 del año)**
+   Cuenta de días cuya velocidad supera el percentil 80:
+
+$$
+D_{80} = \sum_{i=1}^{n} \mathbb{1}(v_i > P_{80})
+$$
+
+Donde $\mathbb{1}$ es la función indicadora y $P_{80}$ es el percentil 80 de la serie del año.
+
+**Variabilidad (desviación estándar)**
+Medida de dispersión en torno a la media:
+
+$$
+\sigma = \sqrt{\frac{1}{n - 1} \sum_{i=1}^{n} (v_i - \bar{v})^2}
+$$
+**Número de días con datos válidos (n)**
+Total de observaciones disponibles en el año:
+
+$$
+n = \text{número de días con datos}
+$$
+
+
+Ahora las graficas  con estas metricas del levsante como análisis exploratorio.
+
+```{r}
+p1 <- ggplot(viento_anual, aes(x = año, y = velocidad_media)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "darkblue", size = 3) +
+  geom_smooth(method = "lm", se = TRUE, color = "red", alpha = 0.3) +
+  labs(title = "Velocidad Media Anual - Viento Levante",
+       x = "", 
+       y = "Velocidad Media (m/s)")+
+  theme_minimal() +
+    theme(plot.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_continuous(breaks = viento_anual$año)
+# 2. Rangos de variabilidad anual (boxplot-style)
+p2 <- ggplot(viento_anual, aes(x = factor(año))) +
+  geom_errorbar(aes(ymin = velocidad_min, ymax = velocidad_max), 
+                width = 0.2, color = "gray60") +
+  geom_errorbar(aes(ymin = velocidad_percentil25, ymax = velocidad_percentil75), 
+                width = 0.4, color = "steelblue", size = 1.5) +
+  geom_point(aes(y = velocidad_media), color = "darkred", size = 3) +
+  labs(title = "Variabilidad Anual del Viento Levante",
+       x = "", 
+       y = "Velocidad (m/s)")+
+  theme_minimal() +
+    theme(plot.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 90, hjust = 1))
+
+# 3. Días con viento fuerte por año
+p3 <- ggplot(viento_anual, aes(x = año, y = dias_viento_fuerte)) +
+  geom_col(fill = "orange", alpha = 0.7, color = "darkorange") +
+  geom_smooth(method = "lm", se = TRUE, color = "red", alpha = 0.3) +
+  labs(title = "Días con Viento Fuerte por Año (Días con velocidad > percentil 80)",
+       x = "", 
+       y = "Número de días (>P80)")+
+  theme_minimal() +
+  theme(plot.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_continuous(breaks = viento_anual$año)
+# 4. Variabilidad interanual (desviación estándar)
+p4 <- ggplot(viento_anual, aes(x = año, y = variabilidad)) +
+  geom_line(color = "purple", size = 1.2) +
+  geom_point(color = "darkmagenta", size = 3) +
+  geom_smooth(method = "lm", se = TRUE, color = "red", alpha = 0.3) +
+  labs(title = "Variabilidad Intra-anual del Viento",
+       x = "", 
+       y = "Desviación Estándar (m/s)")+
+  theme_minimal() +
+  theme(plot.title = element_text(size = 10),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_x_continuous(breaks = viento_anual$año)
+```
+
+
+```{r}
+# 5. Panel combinado
+p_combinado <- grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+
+ Crear objeto `ts`
+
+```{r}
+# Agregar datos por día (promedio diario)
+serie_diaria <- datos_levante %>%
+  mutate(fecha_dia = as.Date(fecha)) %>%
+  group_by(fecha_dia) %>%
+  summarise(
+    velocidad_promedio = mean(velocidad_viento, na.rm = TRUE),
+    direccion_promedio = mean(direccion_grados, na.rm = TRUE),
+    n_observaciones = n(),
+    .groups = 'drop'
+  ) %>%
+  filter(!is.na(velocidad_promedio))
+
+# Crear serie temporal
+ts_levante <- ts(serie_diaria$velocidad_promedio, 
+                 start = c(year(min(serie_diaria$fecha_dia)), yday(min(serie_diaria$fecha_dia))),
+                 frequency = 365.25)
+
+```
+
+
+```{r}
+# Visualización de la serie temporal
+p1 <- autoplot(ts_levante) +
+  labs(title = "Serie Temporal - Velocidad Promedio Viento Levante",
+       x = "Tiempo", y = "Velocidad (m/s)") +
+  theme_minimal()
+p1
+```
+
+
+```{r}
+# Test de estacionariedad - Augmented Dickey-Fuller
+adf_test <- adf.test(ts_levante, alternative = "stationary")
+cat("Test ADF p-value:", adf_test$p.value, "\n")
+if(adf_test$p.value < 0.05) {
+  cat("La serie ES estacionaria (p < 0.05)\n")
+} else {
+  cat("La serie NO es estacionaria (p >= 0.05)\n")
+}
+```
+El test de estacionariedad Augmented Dickey-Fuller (ADF) aplicado a la serie temporal `ts_levante` arrojó un p-valor de 0.01, que es menor al umbral comúnmente utilizado de 0.05. Esto indica que podemos rechazar la hipótesis nula de que la serie tiene una raíz unitaria (es decir, no es estacionaria). Por lo tanto, concluimos que la serie `ts_levante` es estacionaria, lo que significa que sus propiedades estadísticas, como la media y la varianza, se mantienen constantes en el tiempo. Esto es fundamental para muchos análisis de series temporales y modelos predictivos que asumen estacionariedad.
+
+
+```{r}
+# Test de normalidad Jarque-Bera
+jb_test <- jarque.bera.test(as.numeric(ts_levante))
+jb_test
+```
+El test de Jarque-Bera arroja un p-value < 2.2e-16, lo que indica un rechazo categórico de la hipótesis nula de normalidad para la serie temporal del viento Levante, evidenciando la presencia de asimetría y curtosis significativamente diferentes de una distribución gaussiana. Este resultado es típico en datos meteorológicos de viento, donde las distribuciones suelen presentar sesgo positivo debido a la alta frecuencia de valores bajos de velocidad y la presencia de eventos extremos ocasionales, además del truncamiento natural en cero que caracteriza las mediciones de velocidad del viento. Aunque esta desviación de la normalidad no compromete la validez del modelado ARIMA, que es robusto ante violaciones de este supuesto en la serie original, sí sugiere que los intervalos de confianza de los pronósticos pueden requerir métodos no paramétricos para mayor precisión, siendo más crítica la evaluación de normalidad en los residuos del modelo final que en la serie temporal original.
+
+```{r}
+# Función de autocorrelación (ACF)
+p2 <- ggAcf(ts_levante, lag.max = 100) +
+  labs(title = "Función de Autocorrelación (ACF)") +
+  theme_minimal()
+p2
+```
+
+El análisis de la función de autocorrelación (ACF) para la serie temporal del viento Levante revela correlaciones estadísticamente significativas en los primeros 2-3 lags (p < 0.05), indicando que la velocidad del viento presenta persistencia a corto plazo con dependencia temporal limitada a pocos días. El decaimiento rápido de las correlaciones y la ausencia de picos regulares en lags superiores (7, 30, 365) sugiere una serie estacionaria sin componentes estacionales fuertes, comportamiento típico en series meteorológicas de viento. Las correlaciones que permanecen dentro de los límites de significancia estadística ( +/- 1.96/raiz-n) en lags mayores confirman la naturaleza de memoria corta del fenómeno, lo que indica que un modelo autorregresivo de orden bajo (AR(2) o AR(3)) sería apropiado para capturar la estructura de dependencia temporal, facilitando tanto el modelado como el pronóstico de la velocidad del viento Levante.
+
+
+Descomposicion de la serie
+
+Descomponer la serie temporal del viento Levante es fundamental antes de realizar análisis de correlación con el reclutamiento porque la descomposición permite separar claramente las distintas componentes que conforman la serie: tendencia, estacionalidad y ruido (componente irregular).
+
+Esto es importante por varias razones:
+
+**Aislar la señal relevante:** La variabilidad estacional y las tendencias a largo plazo pueden enmascarar o distorsionar la relación real entre el viento Levante y el reclutamiento. Por ejemplo, una tendencia creciente en el viento o patrones estacionales fuertes podrían inducir correlaciones espurias si no se controlan.
+
+**Analizar relaciones específicas:** Al separar la serie en componentes, podemos investigar si el reclutamiento está correlacionado con la tendencia (por ejemplo, cambios a largo plazo en el viento), con la estacionalidad (patrones periódicos) o con las fluctuaciones residuales (ruido). Esto ayuda a entender mejor qué aspectos del viento Levante influyen en el reclutamiento.
+
+**Mejorar modelos predictivos:** Modelos que usan series descompuestas o componentes filtradas suelen ser más robustos y con mayor poder explicativo porque evitan la confusión causada por la mezcla de señales.
+
+**Cumplir supuestos estadísticos:** Muchos métodos estadísticos, como la correlación o regresión, asumen que las series son estacionarias o que las variables no están afectadas por tendencias o estacionalidades no controladas.
+
+Por eso, la descomposición STL (que es flexible y puede adaptarse a cambios en la estacionalidad) y la descomposición clásica permiten obtener una visión clara y precisa de la dinámica del viento Levante, facilitando así una interpretación más acertada de cómo este factor climático puede afectar el reclutamiento de la población estudiada.
+
+
+```{r}
+# Descomposición STL (Seasonal and Trend decomposition using Loess)
+stl_decomp <- stl(ts_levante, s.window = "periodic", t.window = NULL)
+
+# Descomposición clásica
+classical_decomp <- decompose(ts_levante, type = "additive")
+
+# Crear gráficos de descomposición
+p4 <- autoplot(stl_decomp) +
+  labs(title = "Descomposición STL - Viento Levante") +
+  theme_minimal()
+p4
+```
+La descomposición STL (Seasonal and Trend decomposition using Loess) de la serie temporal del viento Levante revela una estructura temporal compleja caracterizada por una tendencia suave y gradual que muestra un incremento progresivo desde 2013 hasta mediados de 2015, seguido de una ligera disminución hacia 2016, con valores que oscilan entre 5.2 y 5.8 m/s. El componente estacional presenta fluctuaciones regulares con amplitud aproximada de ±2 m/s alrededor de la media, evidenciando patrones cíclicos anuales consistentes que sugieren variabilidad estacional en la intensidad del viento Levante, mientras que el componente de residuos muestra variaciones aleatorias de alta frecuencia con algunos picos ocasionales que podrían corresponder a eventos meteorológicos extremos no capturados por los componentes determinísticos. La magnitud relativamente pequeña de los residuos en comparación con la serie original indica que la descomposición STL logra capturar efectivamente la mayor parte de la variabilidad temporal, sugiriendo que la dinámica del viento Levante está dominada por procesos estacionales predecibles superpuestos a una tendencia de largo plazo moderada.
+
+
+```{r}
+# 6. ANÁLISIS DE COMPONENTES
+# Extraer componentes
+tendencia <- stl_decomp$time.series[,"trend"]
+estacional <- stl_decomp$time.series[,"seasonal"]
+residuos <- stl_decomp$time.series[,"remainder"]
+
+# Estadísticas de componentes
+cat("Varianza de componentes:\n")
+cat("Serie original:", var(ts_levante, na.rm = TRUE), "\n")
+cat("Tendencia:", var(tendencia, na.rm = TRUE), "\n")
+cat("Estacional:", var(estacional, na.rm = TRUE), "\n")
+cat("Residuos:", var(residuos, na.rm = TRUE), "\n")
+
+# Proporción de varianza explicada
+var_total <- var(ts_levante, na.rm = TRUE)
+cat("\nProporción de varianza:\n")
+cat("Tendencia:", round(var(tendencia, na.rm = TRUE)/var_total * 100, 2), "%\n")
+cat("Estacional:", round(var(estacional, na.rm = TRUE)/var_total * 100, 2), "%\n")
+cat("Residuos:", round(var(residuos, na.rm = TRUE)/var_total * 100, 2), "%\n")
+
+# 7. ANÁLISIS DE RESIDUOS
+cat("\n=== ANÁLISIS DE RESIDUOS ===\n")
+
+# Test de Ljung-Box para independencia de residuos
+lb_test <- Box.test(residuos, lag = 20, type = "Ljung-Box")
+cat("Test Ljung-Box p-value:", lb_test$p.value, "\n")
+if(lb_test$p.value > 0.05) {
+  cat("Los residuos SON independientes (p > 0.05)\n")
+} else {
+  cat("Los residuos NO son independientes (p <= 0.05)\n")
+}
+
+# Gráficos de residuos
+p5 <- autoplot(residuos) +
+  labs(title = "Residuos de la Descomposición STL", y = "Residuos") +
+  theme_minimal()
+
+p6 <- ggAcf(residuos, lag.max = 50) +
+  labs(title = "ACF de Residuos") +
+  theme_minimal()
+
+# Q-Q plot de residuos
+residuos_df <- data.frame(residuos = as.numeric(residuos))
+p7 <- ggplot(residuos_df, aes(sample = residuos)) +
+  stat_qq() + stat_qq_line() +
+  labs(title = "Q-Q Plot de Residuos", x = "Cuantiles teóricos", y = "Cuantiles muestrales") +
+  theme_minimal()
+
+# 8. DETECCIÓN DE VALORES ATÍPICOS usando descomposición STL
+outliers <- tsoutliers(ts_levante)
+cat("\nDetección de valores atípicos:\n")
+if(length(outliers$index) > 0) {
+  cat("Se detectaron", length(outliers$index), "valores atípicos\n")
+  print(outliers)
+} else {
+  cat("No se detectaron valores atípicos significativos\n")
+}
+
+grid.arrange(p5, p6, p7, ncol = 2)
+
+
+# 9. ANÁLISIS ESPECTRAL
+cat("\n=== ANÁLISIS ESPECTRAL ===\n")
+
+# Periodograma
+spec_analysis <- spectrum(ts_levante, plot = FALSE)
+freq_dominantes <- which(spec_analysis$spec == max(spec_analysis$spec))
+periodo_dominante <- 1/spec_analysis$freq[freq_dominantes]
+cat("Periodo dominante:", round(periodo_dominante, 2), "días\n")
+
+# 10. MODELADO ARIMA AUTOMÁTICO
+cat("\n=== MODELADO ARIMA ===\n")
+
+# Auto ARIMA
+auto_arima <- auto.arima(ts_levante, 
+                         seasonal = TRUE, 
+                         stepwise = FALSE, 
+                         approximation = FALSE)
+cat("Modelo ARIMA automático:\n")
+print(auto_arima)
+
+# Residuos del modelo ARIMA
+checkresiduals(auto_arima)
+
+# 11. PRONÓSTICOS
+cat("\n=== PRONÓSTICOS ===\n")
+
+# Pronóstico a 30 días
+pronostico <- forecast(auto_arima, h = 30)
+p8 <- autoplot(pronostico) +
+  labs(title = "Pronóstico ARIMA - Viento Levante (30 días)",
+       x = "Tiempo", y = "Velocidad (m/s)") +
+  theme_minimal()
+print(p8)
+
+```
+
+
+```{r}
+
+# Exportar resultados principales
+resultados_levante <- list(
+  serie_temporal = ts_levante,
+  descomposicion_stl = stl_decomp,
+  modelo_arima = auto_arima,
+  pronostico = pronostico,
+  estadisticas = summary(ts_levante),
+  tests = list(adf = adf_test, ljung_box = lb_test, jarque_bera = jb_test)
+)
+```
+
+```{r}
+viento_biologico <- tendencia + estacional
+# Graficar el viento biológico (tendencia + estacional)
+library(ggplot2)
+library(forecast)
+library(gridExtra)
+library(lubridate)
+
+# Combinar tendencia y componente estacional
+viento_biologico <- tendencia + estacional
+
+# Cargar paquetes necesarios
+library(dplyr)
+library(ggplot2)
+
+# Obtener fechas reales a partir del tiempo decimal
+fecha_inicio <- as.Date("2013-01-01")  # puedes ajustar si sabes la fecha real exacta
+fechas <- seq(fecha_inicio, by = "day", length.out = length(ts_levante))
+
+# Crear data.frame para ggplot u otras tareas
+df_levante <- data.frame(
+  fecha = fechas,
+  valor = as.numeric(ts_levante)
+)
+
+# Vista previa
+head(df_levante)
+
+datos_plot <- data.frame(
+  fecha = fechas,
+  serie_original = as.numeric(ts_levante),
+  tendencia = as.numeric(tendencia),
+  estacional = as.numeric(estacional),
+  viento_biologico = as.numeric(viento_biologico),
+  residuos = as.numeric(residuos)
+)
+
+# 1. Gráfico principal: Serie original vs Viento biológico
+p1 <- ggplot(datos_plot, aes(x = fecha)) +
+  geom_line(aes(y = serie_original, color = "Serie Original"), alpha = 0.6, size = 0.5) +
+  geom_line(aes(y = viento_biologico, color = "Viento Biológico"), size = 1.2) +
+  scale_color_manual(values = c("Serie Original" = "lightgray", 
+                               "Viento Biológico" = "darkblue")) +
+  labs(title = "Viento Levante: Serie Original vs Componente Biológico",
+       subtitle = "Viento biológico = Tendencia + Estacional (sin ruido de corto plazo)",
+       x = "Fecha", 
+       y = "Velocidad del viento (m/s)",
+       color = "Serie") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"),
+        legend.position = "bottom") +
+  guides(color = guide_legend(override.aes = list(size = 2)))
+
+# 2. Descomposición detallada
+p2 <- ggplot(datos_plot, aes(x = fecha)) +
+  geom_line(aes(y = tendencia, color = "Tendencia"), size = 1.2) +
+  geom_line(aes(y = estacional, color = "Estacional"), size = 0.8) +
+  geom_line(aes(y = viento_biologico, color = "Biológico"), size = 1.2) +
+  scale_color_manual(values = c("Tendencia" = "red", 
+                               "Estacional" = "green", 
+                               "Biológico" = "darkblue")) +
+  labs(title = "Componentes del Viento Biológico",
+       subtitle = "Tendencia + Estacional = Viento Biológico",
+       x = "Fecha", 
+       y = "Velocidad del viento (m/s)",
+       color = "Componente") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# 3. Comparación de variabilidad
+p3 <- ggplot(datos_plot, aes(x = fecha)) +
+  geom_ribbon(aes(ymin = viento_biologico - 0.5, ymax = viento_biologico + 0.5), 
+              fill = "darkblue", alpha = 0.3) +
+  geom_line(aes(y = serie_original), color = "gray60", alpha = 0.7) +
+  geom_line(aes(y = viento_biologico), color = "darkblue", size = 1.2) +
+  labs(title = "Viento Biológico con Banda de Confianza",
+       subtitle = "Área sombreada: ±0.5 m/s alrededor del viento biológico",
+       x = "Fecha", 
+       y = "Velocidad del viento (m/s)") +
+  theme_minimal()
+
+# 4. Análisis por años
+datos_plot$año <- year(datos_plot$fecha)
+resumen_anual <- datos_plot %>%
+  group_by(año) %>%
+  summarise(
+    original_media = mean(serie_original, na.rm = TRUE),
+    biologico_media = mean(viento_biologico, na.rm = TRUE),
+    original_sd = sd(serie_original, na.rm = TRUE),
+    biologico_sd = sd(viento_biologico, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+p4 <- ggplot(resumen_anual, aes(x = año)) +
+  geom_line(aes(y = original_media, color = "Original"), size = 1) +
+  geom_line(aes(y = biologico_media, color = "Biológico"), size = 1.2) +
+  geom_point(aes(y = original_media, color = "Original"), size = 2) +
+  geom_point(aes(y = biologico_media, color = "Biológico"), size = 3) +
+  scale_color_manual(values = c("Original" = "gray60", "Biológico" = "darkblue")) +
+  labs(title = "Promedios Anuales: Original vs Biológico",
+       x = "Año", 
+       y = "Velocidad media (m/s)",
+       color = "Serie") +
+  theme_minimal() +
+  scale_x_continuous(breaks = resumen_anual$año)
+
+# Mostrar gráficos
+p_combinado <- grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+
+```{r}
+# Estadísticas comparativas
+cat("=== ESTADÍSTICAS COMPARATIVAS ===\n")
+cat("Serie Original:\n")
+cat("Media:", round(mean(datos_plot$serie_original, na.rm = TRUE), 2), "m/s\n")
+cat("SD:", round(sd(datos_plot$serie_original, na.rm = TRUE), 2), "m/s\n")
+cat("Rango:", round(range(datos_plot$serie_original, na.rm = TRUE), 2), "m/s\n")
+
+cat("\nViento Biológico (Tendencia + Estacional):\n")
+cat("Media:", round(mean(datos_plot$viento_biologico, na.rm = TRUE), 2), "m/s\n")
+cat("SD:", round(sd(datos_plot$viento_biologico, na.rm = TRUE), 2), "m/s\n")
+cat("Rango:", round(range(datos_plot$viento_biologico, na.rm = TRUE), 2), "m/s\n")
+
+cat("\nReducción de variabilidad:\n")
+reduccion_sd <- (1 - sd(datos_plot$viento_biologico, na.rm = TRUE) / sd(datos_plot$serie_original, na.rm = TRUE)) * 100
+cat("Reducción SD:", round(reduccion_sd, 1), "%\n")
+
+# Correlación
+correlacion <- cor(datos_plot$serie_original, datos_plot$viento_biologico, use = "complete.obs")
+cat("Correlación Original-Biológico:", round(correlacion, 3), "\n")
+
+# Crear serie temporal del viento biológico
+ts_viento_biologico <- ts(datos_plot$viento_biologico, 
+                         start = c(year(min(datos_plot$fecha)), yday(min(datos_plot$fecha))),
+                         frequency = 365.25)
+
+cat("\n=== VIENTO BIOLÓGICO LISTO PARA CORRELACIÓN ===\n")
+cat("Use 'ts_viento_biologico' o 'datos_plot$viento_biologico' para correlacionar con reclutamientos\n")
+
+# Exportar datos
+write.csv(datos_plot, "viento_biologico_diario.csv", row.names = FALSE)
+write.csv(resumen_anual, "viento_biologico_anual.csv", row.names = FALSE)
+cat("Datos exportados a archivos CSV\n")
+```
+
+### Series de Tiempo (ChatGPT)
+
+
+
+1. **Agrega el preprocesamiento** para convertir tu `datos_levante` en una serie diaria (o semanal/mensual si prefieres).
+2. **Hace análisis de autocorrelación (ACF/PACF)**.
+3. **Descompone la serie temporal (STL)**.
+4. **Prepara los datos agregados (por ejemplo, promedio diario)** que luego podrás correlacionar con el reclutamiento de coquina.
+
+
+* Los datos están en formato horario (`POSIXct`) y en una tibble llamada `datos_levante`.
+* Solo usaremos datos de viento tipo **"Levante"**.
+
+
+```{r}
+# Filtrar solo viento de tipo "Levante"
+levante <- datos_levante %>%
+  filter(tipo_viento == "Levante")
+
+# Agregar a nivel diario: velocidad promedio por día
+levante_diario <- levante %>%
+  mutate(fecha = as.Date(fecha)) %>%
+  group_by(fecha) %>%
+  summarise(viento_promedio = mean(velocidad_viento, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+Visualización inicial de la serie
+
+```{r}
+ggplot(levante_diario, aes(x = fecha, y = viento_promedio)) +
+  geom_line(color = "steelblue") +
+  labs(title = "Velocidad promedio diaria del viento de Levante",
+       x = "Fecha", y = "Velocidad (m/s)") +
+  theme_minimal()
+```
+
+Convertir a serie temporal
+
+```{r}
+# Crear objeto ts
+ts_levante <- ts(levante_diario$viento_promedio,
+                 start = c(year(min(levante_diario$fecha)), yday(min(levante_diario$fecha))),
+                 frequency = 365.25)
+
+library(zoo)
+
+# Serie diaria con fechas reales
+ts_levante_zoo <- zoo(levante_diario$viento_promedio, order.by = levante_diario$fecha)
+
+# Puedes hacer plot, ACF, STL usando zoo/forecast
+plot(ts_levante_zoo)
+# Comprobar si hay fechas faltantes
+all_dates <- seq(min(levante_diario$fecha), max(levante_diario$fecha), by = "day")
+
+# Completar fechas faltantes con NA (necesario para ts())
+levante_completo <- data.frame(fecha = all_dates) %>%
+  left_join(levante_diario, by = "fecha")
+
+# Crear ts correctamente
+ts_levante <- ts(levante_completo$viento_promedio,
+                 start = c(2013, 1),  # asumiendo que parte del 1 de enero
+                 frequency = 365.25)
+length(ts_levante)           # Número total de observaciones
+nrow(levante_diario)         # Días con datos
+length(all_dates)            # Días posibles entre min y max
+library(dplyr)
+library(lubridate)
+
+# 1. Crear secuencia completa de fechas diarias
+fechas_completas <- seq(
+  from = as.Date("2013-01-01"),
+  to   = as.Date("2025-12-31"),
+  by   = "day"
+)
+
+# 2. Agregar a nivel diario y completar fechas faltantes
+levante_diario <- datos_levante %>%
+  filter(tipo_viento == "Levante") %>%
+  mutate(fecha = as.Date(fecha)) %>%
+  group_by(fecha) %>%
+  summarise(viento_promedio = mean(velocidad_viento, na.rm = TRUE)) %>%
+  ungroup() %>%
+  right_join(data.frame(fecha = fechas_completas), by = "fecha") %>%
+  arrange(fecha)
+
+# 3. Crear el objeto ts asegurando que tenga frecuencia diaria
+ts_levante <- ts(levante_diario$viento_promedio,
+                 start = c(2013, 1),
+                 frequency = 365.25) 
+
+
+```
+
+Análisis de autocorrelación
+
+```{r}
+library(dplyr)
+library(zoo)
+
+# Asegúrate que 'fecha' sea Date (no POSIXct)
+levante_diario <- levante_diario %>%
+  mutate(fecha = as.Date(fecha))
+
+# Crear secuencia completa de fechas
+fechas_completas <- seq(min(levante_diario$fecha), max(levante_diario$fecha), by = "day")
+
+# Combinar con la secuencia completa
+serie_completa <- data.frame(fecha = fechas_completas) %>%
+  left_join(levante_diario, by = "fecha")
+
+# Crear objeto zoo con fechas completas
+zoo_levante <- zoo(serie_completa$viento_promedio, order.by = serie_completa$fecha)
+
+# Interpolar valores faltantes
+zoo_interp <- na.approx(zoo_levante)
+
+acf(zoo_interp, main = "Función de autocorrelación (ACF)")
+pacf(zoo_interp, main = "Función de autocorrelación parcial (PACF)")
+
+
+```
+
+El gráfico de la Función de Autocorrelación (ACF) muestra una autocorrelación muy alta en el primer retardo (lag 1), superior a 0.8, lo que indica una fuerte dependencia temporal inmediata entre los valores diarios de la velocidad del viento de Levante. A partir del segundo retardo, los valores de autocorrelación caen rápidamente y se sitúan dentro del intervalo de confianza, lo que sugiere que, más allá del primer día, no hay una estructura temporal significativa persistente. Esto es típico de series con poca memoria a largo plazo y alta variabilidad diaria.
+
+El gráfico de la Función de Autocorrelación Parcial (PACF) refuerza esta interpretación, mostrando un pico importante únicamente en el primer retardo, mientras que los retardos siguientes presentan valores bajos y dentro del rango de no significancia. Este patrón es característico de una estructura AR(1), donde el valor actual depende mayormente del día anterior, pero no directamente de días más lejanos. Esto implica que, para modelar esta serie, podría considerarse un modelo autorregresivo simple como punto de partida.
+
+
+
+Descomposición de la serie temporal
+
+```{r}
+# STL: descomposición en tendencia, estacionalidad y residuo
+ts_stl <- stl(ts_levante, s.window = "periodic")
+
+# Gráfico de la descomposición
+plot(ts_stl)
+```
+
+
+El gráfico de descomposición STL muestra la descomposición aditiva de la serie diaria de viento de Levante en sus tres componentes: tendencia, estacionalidad y residuo. En la primera franja se observa la serie original con alta variabilidad diaria. La componente estacional, en la segunda franja, revela un patrón repetitivo que parece reflejar cierta estacionalidad intraanual, posiblemente asociada a ciclos meteorológicos recurrentes, aunque con variabilidad de amplitud a lo largo del tiempo. Esto sugiere que hay cierta estructura estacional, aunque no muy pronunciada o perfectamente regular.
+
+La tercera franja muestra la tendencia suavizada, la cual evidencia una leve pendiente ascendente entre 2013 y mediados de 2015, seguida por una caída y luego un aumento marcado hacia fines de 2015. Esto podría reflejar un cambio en la intensidad promedio del viento de Levante en ese periodo. Por último, el componente de residuo, en la cuarta franja, conserva una gran parte de la variabilidad diaria, lo que indica que buena parte de la señal es ruido o está influenciada por fenómenos no capturados ni por la estacionalidad ni por la tendencia, lo cual es esperable en datos meteorológicos con alta variabilidad a corto plazo.
+
+Extraer componentes para usar en modelos posteriores
+
+```{r}
+# Extraer componentes en un data.frame
+componentes <- ts_stl$time.series
+df_componentes <- levante_diario %>%
+  mutate(
+    tendencia = as.numeric(componentes[, "trend"]),
+    estacional = as.numeric(componentes[, "seasonal"]),
+    residuo = as.numeric(componentes[, "remainder"])
+  )
+
+tail(df_componentes)
+```
+
+Guardar datos para modelos posteriores
+
+```{r}
+# Puedes guardar solo la tendencia, o la serie completa con componentes
+write.csv(df_componentes, "levante_componentes.csv", row.names = FALSE)
+```
+
+
+
+Con el archivo `levante_componentes.csv`, puedes:
+
+* Hacer correlaciones con tus datos de reclutamiento (`lm(reclutamiento ~ tendencia)`).
+* Incluir `tendencia`, `estacionalidad` o incluso `residuo` como covariables en tus modelos lineales o no lineales.
+
+
+
 ### Trabajo futuro
 
 Incorporar otras variables predictoras como temperatura, clorofila, entre otras...
 
+
+\newpage
+
+# Material Suplementario
+
+
+El codigo fuente para el análisis exploratorio y manipulación de datos de viento y reclutamiento de coquina se encuentran disponibles en el repositorio de GitHub:  [wind_recruit_Dtrunculus](https://github.com/MauroMardones/wind-recruitment-Dtrunculus).
 
 \newpage
 

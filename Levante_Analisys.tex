@@ -227,11 +227,7 @@ August, 2025
 
 \section{Contexto}\label{contexto}
 
-\subsubsection{\texorpdfstring{Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (\emph{Donax trunculus})}{Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (Donax trunculus)}}\label{anuxe1lisis-de-los-vientos-de-levante-y-su-relaciuxf3n-con-el-reclutamiento-de-la-coquina-donax-trunculus}
-
-Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina \emph{Donax trunculus}, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
-
-\subsubsection{Objetivo}\label{objetivo}
+Análisis de los vientos de Levante y su relación con el reclutamiento de la coquina (\emph{Donax trunculus}). Este estudio realiza un análisis detallado de los patrones de viento de Levante y Poniente a partir de datos meteorológicos recopilados entre 2013 y 2025. Se caracterizan aspectos clave como la frecuencia, duración e intensidad de estos eventos atmosféricos, con el objetivo de evaluar su posible influencia sobre variables poblacionales de la coquina \emph{Donax trunculus}, una especie bivalva de importancia ecológica y pesquera en el litoral suratlántico español.
 
 El objetivo principal de este trabajo es identificar y cuantificar los patrones de viento dominantes y analizar su relación con parámetros poblacionales de \emph{Donax trunculus}. Para ello, se emplean datos de monitoreo biológico y pesquero obtenidos por el Instituto Español de Oceanografía (IEO-CSIC) en el marco del proyecto FEMP 04, con énfasis en las dinámicas de reclutamiento observadas en el Golfo de Cádiz.
 
@@ -342,6 +338,15 @@ Conversión de formatos & Fecha GMT a \texttt{POSIXct} o \texttt{Date} \\
 
 \begin{Shaded}
 \begin{Highlighting}[]
+\NormalTok{directorio }\OtherTok{\textless{}{-}} \StringTok{"\textasciitilde{}/IEO/wind{-}recruitment{-}Dtrunculus/data"}
+\NormalTok{archivos }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"21405\_40638\_5028023\_WIND\_20130101124124\_20250723114124.csv"}\NormalTok{,}
+  \StringTok{"21405\_40639\_5027023\_WIND\_20130101124130\_20250723114130.csv"}\NormalTok{,}
+  \StringTok{"21405\_40640\_5029023\_WIND\_20130101124134\_20250723114134.csv"}\NormalTok{,}
+  \StringTok{"21405\_40641\_5030023\_WIND\_20130101124138\_20250723114138.csv"}
+\NormalTok{)}
+\NormalTok{rutas\_completas }\OtherTok{\textless{}{-}} \FunctionTok{file.path}\NormalTok{(directorio, archivos)}
+
 \CommentTok{\#Funcion para leer todos los archivos.}
 \NormalTok{leer\_archivo\_viento }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(archivo) \{}
 \NormalTok{  readr}\SpecialCharTok{::}\FunctionTok{read\_tsv}\NormalTok{(archivo, }\AttributeTok{skip =} \DecValTok{1}\NormalTok{,}
@@ -358,7 +363,8 @@ Conversión de formatos & Fecha GMT a \texttt{POSIXct} o \texttt{Date} \\
 \NormalTok{    dplyr}\SpecialCharTok{::}\FunctionTok{select}\NormalTok{(fecha, velocidad\_viento, direccion\_grados)}
 \NormalTok{\}}
 
-\NormalTok{datos\_viento }\OtherTok{\textless{}{-}}\NormalTok{ purrr}\SpecialCharTok{::}\FunctionTok{map\_dfr}\NormalTok{(rutas\_completas, leer\_archivo\_viento)}
+\NormalTok{datos\_viento }\OtherTok{\textless{}{-}}\NormalTok{ purrr}\SpecialCharTok{::}\FunctionTok{map\_dfr}\NormalTok{(rutas\_completas, }
+\NormalTok{                               leer\_archivo\_viento)}
 \end{Highlighting}
 \end{Shaded}
 
@@ -383,6 +389,22 @@ Donde:
 \end{itemize}
 
 Esta clasificación se implementó en R con \texttt{case\_when()} para etiquetar automáticamente cada observación horaria.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Clasificar los datos de viento}
+\NormalTok{datos\_clasificados }\OtherTok{\textless{}{-}}\NormalTok{ datos\_limpios }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}
+    \AttributeTok{tipo\_viento =} \FunctionTok{case\_when}\NormalTok{(}
+\NormalTok{      velocidad\_viento }\SpecialCharTok{\textgreater{}=} \DecValTok{4} \SpecialCharTok{\&}\NormalTok{ velocidad\_viento }\SpecialCharTok{\textless{}=} \DecValTok{40} \SpecialCharTok{\&}
+\NormalTok{        direccion\_grados }\SpecialCharTok{\textgreater{}=} \FloatTok{67.5} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textless{}=} \FloatTok{157.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"Levante"}\NormalTok{,}
+\NormalTok{      velocidad\_viento }\SpecialCharTok{\textgreater{}=} \DecValTok{8} \SpecialCharTok{\&}\NormalTok{ velocidad\_viento }\SpecialCharTok{\textless{}=} \DecValTok{40} \SpecialCharTok{\&}
+\NormalTok{        direccion\_grados }\SpecialCharTok{\textgreater{}=} \FloatTok{247.5} \SpecialCharTok{\&}\NormalTok{ direccion\_grados }\SpecialCharTok{\textless{}=} \FloatTok{292.5} \SpecialCharTok{\textasciitilde{}} \StringTok{"Poniente"}\NormalTok{,}
+      \ConstantTok{TRUE} \SpecialCharTok{\textasciitilde{}} \StringTok{"Otro"}
+\NormalTok{    )}
+\NormalTok{  )}
+\end{Highlighting}
+\end{Shaded}
 
 En terminos direccionales, la rosa de los vientos queda clasificada de la siguiente forma:
 
@@ -575,6 +597,12 @@ El gráfico muestra que la influencia del viento de Levante sobre el reclutamien
 \subsubsection{Trabajo futuro}\label{trabajo-futuro}
 
 Incorporar otras variables predictoras como temperatura, clorofila, entre otras\ldots{}
+
+\newpage
+
+\section{Material Suplementario}\label{material-suplementario}
+
+El codigo fuente para el análisis exploratorio y manipulación de datos de viento y reclutamiento de coquina se encuentran disponibles en el repositorio de GitHub: \href{https://github.com/MauroMardones/wind-recruitment-Dtrunculus}{wind\_recruit\_Dtrunculus}.
 
 \newpage
 
