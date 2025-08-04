@@ -184,7 +184,7 @@
 
 %\begin{titlepage}
 \begin{flushleft}
-\Large{\textbf{Material Suplementario 1}}\\
+\Large{\textbf{Reporte Preliminar 1}}\\
 \vspace*{2\baselineskip}
 \LARGE{\textbf{Análisis del viento de Levante y su impacto en reclutamiento de coquina \textit{Donax trunculus} durante la última década}}\\
 \vspace*{5\baselineskip}
@@ -197,6 +197,7 @@
 \large{\textit{Mauricio Mardones}}\\
 \large{\textit{Marina Delgado}}\\
 \large{\textit{Ricardo Sánchez}}\\
+\large{\textit{Luis Silva}}\\
 \vspace*{1\baselineskip}
 \normalsize{\textbf{Fecha}}\\
 August, 2025
@@ -241,7 +242,8 @@ El objetivo principal de este trabajo es identificar y cuantificar los patrones 
   \StringTok{"readr"}\NormalTok{, }\StringTok{"dplyr"}\NormalTok{, }\StringTok{"lubridate"}\NormalTok{, }\StringTok{"stringr"}\NormalTok{, }\StringTok{"purrr"}\NormalTok{,}
   \StringTok{"ggplot2"}\NormalTok{, }\StringTok{"tidyr"}\NormalTok{, }\StringTok{"gridExtra"}\NormalTok{, }\StringTok{"viridis"}\NormalTok{, }\StringTok{"scales"}\NormalTok{,}
   \StringTok{"formatR"}\NormalTok{, }\StringTok{"ggpubr"}\NormalTok{, }\StringTok{"ggthemes"}\NormalTok{, }\StringTok{"kableExtra"}\NormalTok{, }\StringTok{"sjPlot"}\NormalTok{, }
-  \StringTok{"broom"}\NormalTok{, }\StringTok{"kableExtra"}
+  \StringTok{"broom"}\NormalTok{, }\StringTok{"kableExtra"}\NormalTok{, }\StringTok{"zoo"}\NormalTok{, }\StringTok{"tseries"}\NormalTok{, }\StringTok{"forecast"}\NormalTok{,}
+  \StringTok{"seasonal"}\NormalTok{, }\StringTok{"plotly"}
 \NormalTok{  )}
 
 \NormalTok{purrr}\SpecialCharTok{::}\FunctionTok{walk}\NormalTok{(paquetes, library, }\AttributeTok{character.only =} \ConstantTok{TRUE}\NormalTok{)}
@@ -288,7 +290,7 @@ Formato de descarga
 \begin{itemize}
 \tightlist
 \item
-  \texttt{.csv}en formato tabular con columnas como:
+  \texttt{.csv} en formato tabular con columnas como:
 \item
   Fecha (GMT)
 \item
@@ -406,7 +408,7 @@ Esta clasificación se implementó en R con \texttt{case\_when()} para etiquetar
 \end{Highlighting}
 \end{Shaded}
 
-En terminos direccionales, la rosa de los vientos queda clasificada de la siguiente forma:
+En terminos direccionales, la rosa de los vientos queda clasificada de la siguiente forma (Figura \ref{fig:windrose}):
 
 \begin{figure}
 
@@ -419,7 +421,16 @@ En terminos direccionales, la rosa de los vientos queda clasificada de la siguie
 
 \subsection{Datos de variables poblacionales de coquina}\label{datos-de-variables-poblacionales-de-coquina}
 
-Utilizaremos el indice de reclutamiento que provien e de las tallas , calculado como la proporcion de individuos \texttt{\textless{}\ 15\ mm}.
+Utilizaremos el indice de reclutamiento que provien e de las tallas , calculado como la proporcion de individuos \texttt{\textless{}\ 15\ mm} los cuales se obtienen de las estructiras de tallas de la fraccion ``Poblacional'' como lo inica la Figura \ref{fig:recl}.
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.99\linewidth]{figures/Recruit_2013_2024} 
+
+}
+
+\caption{Indice de Reclutamiento por año y por sector de muestreo}\label{fig:recl}
+\end{figure}
 
 \newpage
 
@@ -459,22 +470,60 @@ Promedio por mes de los días con levante y poniente a través de los meses en l
 
 \caption{Relación entre intensisdad y dias con levante y poniente}\label{fig:intvel2}
 \end{figure}
+
+(Estas figuras son solo vizualizaciones dado que no son muy informativas)
+
 \newpage
 
-Ahora por año y por mes
+Ahora por año y por mes. La Figura \ref{fig:estaci} se muestra los eventos de Levante y Poniente por mes y por año
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-3-1} \end{center}
+\begin{figure}
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-4-1} \end{center}
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/estaci-1} 
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-5-1} \end{center}
+}
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-6-1} \end{center}
+\caption{Detalle de vientos de levante y Poniente}\label{fig:estaci}
+\end{figure}
+
+La Figura \ref{fig:estaci2} muestra un mapa de calor de ambos vientos.
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/estaci2-1} 
+
+}
+
+\caption{Mapa de calor de vientos de levante y Poniente}\label{fig:estaci2}
+\end{figure}
+
+La Figura \ref{fig:estaciones} muestra la tendiencia temporal de ambos vientos.
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/estaciones-1} 
+
+}
+
+\caption{Serie temporal de vientos de levante y Poniente}\label{fig:estaciones}
+\end{figure}
+
+El fenomeno de Levante en el Parque Doñana muestra un comportamiento estacioal marcado.
+
 \newpage
 
 \subsubsection{Series temporales del monitoreo poblacional de coquina}\label{series-temporales-del-monitoreo-poblacional-de-coquina}
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-7-1} \end{center}
+El reclutamiento a traves de los meses y años puede verse en la Figura \ref{fig:recluserie}
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/recluserie-1} 
+
+}
+
+\caption{Serie temporal de reclutaamiento}\label{fig:recluserie}
+\end{figure}
 
 El plot muestra una marcada estacionalidad de los reclutamientos, con un pulso posterior a los meses estivales como lo indica Delgado \& Silva (\citeproc{ref-Delgado2018}{2018}) en la Figura \ref{fig:ciclo}.
 
@@ -490,50 +539,31 @@ El plot muestra una marcada estacionalidad de los reclutamientos, con un pulso p
 
 \subsection{Modelos de correlacion entre Reclutamiento y Viento de Levante}\label{modelos-de-correlacion-entre-reclutamiento-y-viento-de-levante}
 
-Uno las bases que estan en los objetos \texttt{serie\_levante} y \texttt{datos}
-
-\begin{verbatim}
-## Rows: 145
-## Columns: 6
-## $ año             <dbl> 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, 2013, ~
-## $ mes             <ord> Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov,~
-## $ tipo_viento     <chr> "Levante", "Levante", "Levante", "Levante", "Levante",~
-## $ dias_con_evento <int> 5, 4, 8, 4, 1, 1, 5, 2, 5, 6, 6, 15, 7, 1, 7, 4, 4, 3,~
-## $ mes_num         <int> 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, ~
-## $ año_mes         <date> 2013-01-01, 2013-02-01, 2013-03-01, 2013-04-01, 2013-~
-\end{verbatim}
-
-\begin{verbatim}
-## Rows: 109
-## Columns: 3
-## Groups: ANO [12]
-## $ ANO     <dbl> 2013, 2013, 2014, 2014, 2014, 2014, 2014, 2014, 2014, 2014, 20~
-## $ mes_num <dbl> 10, 12, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3, 4, 5, 6, ~
-## $ meand15 <dbl> 0.0000000, 2.9239766, 12.7121216, 13.6718750, 37.3687894, 6.43~
-\end{verbatim}
+Uno las bases que estan en los objetos \texttt{serie\_levante} y \texttt{datos} y vizualizo el comportamiento de la variable en la Figura \ref{fig:hist1}.
 
 \begin{figure}
 
-{\centering \includegraphics[width=0.75\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-10-1} 
+{\centering \includegraphics[width=0.55\linewidth]{Levante_Analisys_files/figure-latex/hist1-1} 
 
 }
 
-\caption{Distribución de variablees objetivo para el análisis de correlación}\label{fig:unnamed-chunk-10-1}
+\caption{Distribución de variablees objetivo para el análisis de correlación}\label{fig:hist1}
 \end{figure}
+
+A su vez, miro como se distribuyen en el tiempo en la Figura \ref{fig:serie2}.
+
 \begin{figure}
 
-{\centering \includegraphics[width=0.75\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-10-2} 
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/serie2-1} 
 
 }
 
-\caption{Distribución de variablees objetivo para el análisis de correlación}\label{fig:unnamed-chunk-10-2}
+\caption{Serie de tiempo de ambas variables}\label{fig:serie2}
 \end{figure}
-
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-11-1} \end{center}
 
 \begin{table}[!h]
 \centering
-\caption{\label{tab:unnamed-chunk-13}Modelo lineal simple de reclutamiento de coquina y viento de levante}
+\caption{\label{tab:unnamed-chunk-5}Modelo lineal simple de reclutamiento de coquina y viento de levante}
 \centering
 \begin{tabular}[t]{l|r|r|r|r|r|r}
 \hline
@@ -548,13 +578,7 @@ dias\_con\_evento & -0.418 & 0.277 & -1.508633 & 0.134 & -0.967 & 0.131\\
 
 En primera instancia, no se observa una correlación lineal significativa entre el viento de levante y el reclutamiento, con un coeficiente de determinación muy bajo (R2 = 0.021), indicando escaso poder explicativo.
 
-A continuación, se procede a analizar la relación entre estas variables en una escala temporal diferente, específicamente a nivel semestral, evaluando la posible influencia del viento de levante sobre el reclutamiento de coquina.
-
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-15-1} \end{center}
-
-\begin{verbatim}
-## [1] "\n=== CORRELACIÓN POR SEMESTRE ==="
-\end{verbatim}
+Se procede a analizar la relación entre estas variables en una escala temporal diferente, específicamente a nivel semestral, evaluando la posible influencia del viento de levante sobre el reclutamiento de coquina.
 
 \begin{table}[!h]
 \centering
@@ -569,7 +593,76 @@ semestre & correlacion & n\_semestres\\
 \end{tabular}
 \end{table}
 
+\newpage
+
 \subsubsection{Modelos semestrales con interacción}\label{modelos-semestrales-con-interacciuxf3n}
+
+\begin{itemize}
+\tightlist
+\item
+  Modelo lineal semestral
+\end{itemize}
+
+\[
+\text{Reclutamiento}_i = \beta_0 + \beta_1 \cdot \text{Viento}_i + \varepsilon_i
+\]
+
+Donde:
+
+\begin{itemize}
+\item
+  \(\text{Reclutamiento}_i\): reclutamiento promedio en el semestre \(i\)
+\item
+  \(\text{Viento}_i\): número de días de viento en el semestre \(i\)
+\item
+  \(\beta_0\): intercepto
+\item
+  \(\beta_1\): efecto lineal de los días de viento
+\item
+  \(\varepsilon_i \sim \mathcal{N}(0, \sigma^2)\): error aleatorio
+\item
+  Modelo cuadrático semestral
+\end{itemize}
+
+\[
+\text{Reclutamiento}_i = \beta_0 + \beta_1 \cdot \text{Viento}_i + \beta_2 \cdot \text{Viento}_i^2 + \varepsilon_i
+\]
+
+Donde:
+
+\begin{itemize}
+\item
+  \(\beta_2\): efecto cuadrático de los días de viento
+\item
+  Modelo con efecto del semestre
+\end{itemize}
+
+\[
+\text{Reclutamiento}_i = \beta_0 + \beta_1 \cdot \text{Viento}_i + \gamma_j \cdot \text{Semestre}_i + \varepsilon_i
+\]
+
+Donde:
+
+\begin{itemize}
+\item
+  \(\text{Semestre}_i\): variable categórica que indica si el semestre es 1 o 2
+\item
+  \(\gamma_j\): efecto fijo del semestre (dummy variable, usualmente para semestre 2)
+\item
+  Modelo con interacción viento × semestre
+\end{itemize}
+
+\[
+\text{Reclutamiento}_i = \beta_0 + \beta_1 \cdot \text{Viento}_i + \gamma_j \cdot \text{Semestre}_i + \delta_j \cdot (\text{Viento}_i \cdot \text{Semestre}_i) + \varepsilon_i
+\]
+
+Donde:
+
+\begin{itemize}
+\tightlist
+\item
+  \(\delta_j\): efecto de interacción entre el viento y el semestre
+\end{itemize}
 
 \begin{table}[!h]
 \centering
@@ -588,11 +681,223 @@ Interacción & Interacción & 0.4262550 & 148.8723 & 0.0074818\\
 \end{tabular}
 \end{table}
 
-Figura \ref{fig:resutlm}
+\newpage
 
-\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/resultlm-1} \end{center}
+Figura \ref{fig:resultlm} vemos los resultados de la prediccion con el modelo seleccionado \texttt{Modelo\ con\ interacción\ viento\ ×\ semestre}
 
-El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (\emph{Donax trunculus}) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
+\begin{figure}[ht!]
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/resultlm-1} 
+
+}
+
+\caption{Cada punto = un semestre (n=20). Modelo: Reclutamiento ~ Viento × Semestre}\label{fig:resultlm}
+\end{figure}
+
+Efectos opuestos del viento de Levante según el período del año. El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (\emph{Donax trunculus}) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
+
+\newpage
+
+\subsubsection{Series de Tiempo}\label{series-de-tiempo}
+
+Crear métricas anuales del viento Levante. Como tengo registros por horas vacios, saco la variable de forma quincenal (Figura \ref{fig:seretem}).
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/seretem-1} 
+
+}
+
+\caption{Serie temporal quincenal de viento de Levante}\label{fig:seretem}
+\end{figure}
+
+Ahora veo el comprtamiento anual dd la variable
+
+\textbf{Velocidad media del viento anual}
+
+Es el promedio de las velocidades diarias dentro de un año:
+\[
+\bar{v} = \frac{1}{n} \sum_{i=1}^{n} v_i
+\]
+
+Donde \(v_i\) es la velocidad del viento el día \(i\) y \(n\) es el número de días del año.
+
+\textbf{Velocidad máxima del viento anual}
+Valor máximo observado en el año:
+
+\[
+v_{\text{max}} = \max(v_1, v_2, \dots, v_n)
+\]
+\textbf{Velocidad mínima del viento anual}
+Valor mínimo observado en el año:
+
+\[
+v_{\text{min}} = \min(v_1, v_2, \dots, v_n)
+\]
+
+\textbf{Percentil 95 (P95)}
+Valor por debajo del cual cae el 95\% de las observaciones:
+
+\[
+P_{95} = \text{percentil}_{95}(v_1, v_2, \dots, v_n)
+\]
+
+\textbf{Percentil 75 (P75)}
+Valor por debajo del cual cae el 75\% de las observaciones:
+
+\[
+P_{75} = \text{percentil}_{75}(v_1, v_2, \dots, v_n)
+\]
+
+\textbf{Percentil 25 (P25)}
+Valor por debajo del cual cae el 25\% de las observaciones:
+
+\[
+P_{25} = \text{percentil}_{25}(v_1, v_2, \dots, v_n)
+\]
+
+\textbf{Días con viento fuerte (por encima del percentil 80 del año)}
+Cuenta de días cuya velocidad supera el percentil 80:
+
+\[
+D_{80} = \sum_{i=1}^{n} \mathbb{1}(v_i > P_{80})
+\]
+
+Donde \(\mathbb{1}\) es la función indicadora y \(P_{80}\) es el percentil 80 de la serie del año.
+
+\textbf{Variabilidad (desviación estándar)}
+Medida de dispersión en torno a la media:
+
+\[
+\sigma = \sqrt{\frac{1}{n - 1} \sum_{i=1}^{n} (v_i - \bar{v})^2}
+\]
+\textbf{Número de días con datos válidos (n)}
+Total de observaciones disponibles en el año:
+
+\[
+n = \text{número de días con datos}
+\]
+
+Ahora las graficas con estas metricas del levante como análisis exploratorio (Figura \ref{fig:levmet}).
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.8\linewidth]{Levante_Analisys_files/figure-latex/levmet-1} 
+
+}
+
+\caption{Metricas anuales del viento de Levante}\label{fig:levmet}
+\end{figure}
+
+Ahora utilizo \texttt{ts} funcion para connvertir a serie temporaly visualizo la serie en la Figura \ref{fig:serie3}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# 1. Convertir a serie temporal (24 quincenas por año)}
+\NormalTok{ts\_levante }\OtherTok{\textless{}{-}} \FunctionTok{ts}\NormalTok{(datos\_levante}\SpecialCharTok{$}\NormalTok{velocidad\_promedio,}
+                 \AttributeTok{start =} \FunctionTok{c}\NormalTok{(}\DecValTok{2013}\NormalTok{, }\DecValTok{1}\NormalTok{), }\AttributeTok{frequency =} \DecValTok{24}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.8\linewidth]{Levante_Analisys_files/figure-latex/serie3-1} 
+
+}
+
+\caption{Serie de tiempo del viento de Levante}\label{fig:serie3}
+\end{figure}
+
+Para explorar la estructura temporal de la ocurrencia del viento de Levante, se utilizaron las funciones \texttt{acf()} y \texttt{pacf()} en R, que permiten examinar la dependencia serial de la variable en el tiempo. La función \texttt{acf} (función de autocorrelación) evalúa cómo los valores de días con viento de Levante en un periodo se correlacionan con sus propios valores en rezagos anteriores, lo que permite identificar patrones de persistencia, repetición o estacionalidad. Complementariamente, la función \texttt{pacf} (función de autocorrelación parcial) estima la correlación entre la serie y sus rezagos eliminando el efecto de los rezagos intermedios, siendo útil para distinguir relaciones directas a distintos desfases. En el contexto del Levante, estas herramientas permiten detectar si existen periodos de ocurrencia agrupada (eventos persistentes) o ciclos que podrían tener implicancias ecológicas, por ejemplo, sobre procesos de reclutamiento o dispersión larval influenciados por este patrón de viento (Figura \ref{fig:autoc})
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.8\linewidth]{Levante_Analisys_files/figure-latex/autoc-1} 
+
+}
+
+\caption{ACF y PACF para el viento de Levante}\label{fig:autoc}
+\end{figure}
+
+En el gráfico de ACF (Autocorrelación), se observa un valor inicial elevado en el \textbf{lag 1}, indicando una leve correlación entre la velocidad del viento de un periodo quincenal y el siguiente. Sin embargo, a partir del segundo desfase (lag 2), los valores de autocorrelación caen rápidamente y permanecen dentro del intervalo de confianza (líneas azules), lo que sugiere que \textbf{no existe una dependencia temporal sostenida}. Esto indica que la serie tiene \textbf{poca memoria}: el valor del viento en una quincena está apenas relacionado con el valor anterior y prácticamente independiente de los valores más lejanos en el tiempo.
+
+En el gráfico de PACF (Autocorrelación Parcial), se observa un patrón disperso de barras que oscilan cerca del cero y dentro de los límites de significancia, sin un corte definido en los primeros lags. Esto sugiere la ausencia de una \textbf{estructura autorregresiva fuerte}, es decir, \textbf{los valores actuales no están directamente influidos por uno o dos valores anteriores de forma consistente}. Este patrón es típico de una serie dominada por ruido blanco o con estructura estocástica débil, lo que concuerda con el modelo ARIMA(0,0,1) ajustado previamente, que indica una dinámica simple con un componente de media móvil leve y escasa estructura autoregresiva o estacional.
+
+\begin{verbatim}
+## Test ADF p-value: 0.01
+\end{verbatim}
+
+\begin{verbatim}
+## La serie ES estacionaria (p < 0.05)
+\end{verbatim}
+
+El test de estacionariedad Augmented Dickey-Fuller (ADF) aplicado a la serie temporal \texttt{ts\_levante} arrojó un p-valor de 0.01, que es menor al umbral comúnmente utilizado de 0.05. Esto indica que podemos rechazar la hipótesis nula de que la serie tiene una raíz unitaria (es decir, no es estacionaria). Por lo tanto, concluimos que la serie \texttt{ts\_levante} es estacionaria, lo que significa que sus propiedades estadísticas, como la media y la varianza, se mantienen constantes en el tiempo. Esto es fundamental para muchos análisis de series temporales y modelos predictivos que asumen estacionariedad.
+
+\begin{verbatim}
+## 
+##  Jarque Bera Test
+## 
+## data:  as.numeric(ts_levante)
+## X-squared = 101.96, df = 2, p-value < 2.2e-16
+\end{verbatim}
+
+El test de Jarque-Bera arroja un p-value \textless{} 2.2e-16, lo que indica un rechazo categórico de la hipótesis nula de normalidad para la serie temporal del viento Levante, evidenciando la presencia de asimetría y curtosis significativamente diferentes de una distribución gaussiana. Este resultado es típico en datos meteorológicos de viento, donde las distribuciones suelen presentar sesgo positivo debido a la alta frecuencia de valores bajos de velocidad y la presencia de eventos extremos ocasionales, además del truncamiento natural en cero que caracteriza las mediciones de velocidad del viento. Aunque esta desviación de la normalidad no compromete la validez del modelado ARIMA, que es robusto ante violaciones de este supuesto en la serie original, sí sugiere que los intervalos de confianza de los pronósticos pueden requerir métodos no paramétricos para mayor precisión, siendo más crítica la evaluación de normalidad en los residuos del modelo final que en la serie temporal original.
+
+Descomponer la serie temporal del viento Levante es fundamental antes de realizar análisis de correlación con el reclutamiento porque la descomposición permite separar claramente las distintas componentes que conforman la serie: tendencia, estacionalidad y ruido (componente irregular) (Figura \ref{fig:descom})
+
+Esto es importante por varias razones:
+
+\textbf{Aislar la señal relevante:} La variabilidad estacional y las tendencias a largo plazo pueden enmascarar o distorsionar la relación real entre el viento Levante y el reclutamiento. Por ejemplo, una tendencia creciente en el viento o patrones estacionales fuertes podrían inducir correlaciones espurias si no se controlan.
+
+\textbf{Analizar relaciones específicas:} Al separar la serie en componentes, podemos investigar si el reclutamiento está correlacionado con la tendencia (por ejemplo, cambios a largo plazo en el viento), con la estacionalidad (patrones periódicos) o con las fluctuaciones residuales (ruido). Esto ayuda a entender mejor qué aspectos del viento Levante influyen en el reclutamiento.
+
+\textbf{Mejorar modelos predictivos:} Modelos que usan series descompuestas o componentes filtradas suelen ser más robustos y con mayor poder explicativo porque evitan la confusión causada por la mezcla de señales.
+
+\textbf{Cumplir supuestos estadísticos:} Muchos métodos estadísticos, como la correlación o regresión, asumen que las series son estacionarias o que las variables no están afectadas por tendencias o estacionalidades no controladas.
+
+Por eso, la descomposición STL (que es flexible y puede adaptarse a cambios en la estacionalidad) y la descomposición clásica permiten obtener una visión clara y precisa de la dinámica del viento Levante, facilitando así una interpretación más acertada de cómo este factor climático puede afectar el reclutamiento de la población estudiada.
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/descom-1} 
+
+}
+
+\caption{Descomposicion de la serie de tiempo del viento de Levante}\label{fig:descom}
+\end{figure}
+
+El gráfico de descomposición STL muestra la descomposición aditiva de la serie diaria de viento de Levante en sus tres componentes: tendencia, estacionalidad y residuo. En la primera franja se observa la serie original con alta variabilidad diaria. La componente estacional, en la segunda franja, revela un patrón repetitivo que parece reflejar cierta estacionalidad intraanual, posiblemente asociada a ciclos meteorológicos recurrentes, aunque con variabilidad de amplitud a lo largo del tiempo. Esto sugiere que hay cierta estructura estacional, aunque no muy pronunciada o perfectamente regular.
+
+La tercera franja muestra la tendencia suavizada, la cual evidencia una leve pendiente ascendente entre 2013 y mediados de 2015, seguida por una caída y luego un aumento marcado hacia fines de 2015. Esto podría reflejar un cambio en la intensidad promedio del viento de Levante en ese periodo. Por último, el componente de residuo, en la cuarta franja, conserva una gran parte de la variabilidad diaria, lo que indica que buena parte de la señal es ruido o está influenciada por fenómenos no capturados ni por la estacionalidad ni por la tendencia, lo cual es esperable en datos meteorológicos con alta variabilidad a corto plazo.
+
+Extraer componentes para usar en modelos posteriores
+
+\subsubsection{Guardar datos para modelos posteriores}\label{guardar-datos-para-modelos-posteriores}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{write.csv}\NormalTok{(df\_componentes, }
+          \StringTok{"levante\_componentes.csv"}\NormalTok{, }\AttributeTok{row.names =} \ConstantTok{FALSE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\subsubsection{Prediccion (ARIMA) (En desarrollo\ldots)}\label{prediccion-arima-en-desarrollo}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-17-1} \end{center}
+
+Visualizar media Movil
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-18-1} \end{center}
+
+Con el archivo \texttt{levante\_componentes.csv}, puedes:
+
+\begin{itemize}
+\tightlist
+\item
+  Hacer correlaciones con tus datos de reclutamiento (\texttt{lm(reclutamiento\ \textasciitilde{}\ tendencia)}).
+\item
+  Incluir \texttt{tendencia}, \texttt{estacionalidad} o incluso \texttt{residuo} como covariables en tus modelos lineales o no lineales.
+\end{itemize}
 
 \subsubsection{Trabajo futuro}\label{trabajo-futuro}
 
