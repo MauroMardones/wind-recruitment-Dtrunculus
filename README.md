@@ -26,7 +26,7 @@ Este proyecto presenta un análisis detallado del viento de Levante, un fenómen
 paquetes <- c(
   "readr", "dplyr", "lubridate", "stringr", "purrr",
   "ggplot2", "tidyr", "gridExtra", "viridis", "scales",
-  "formatR"
+  "formatR", "tseries", "zoo"
 )
 
 purrr::walk(paquetes, library, character.only = TRUE)
@@ -47,6 +47,7 @@ purrr::walk(paquetes, library, character.only = TRUE)
 - **Correlaciones** con otros factores ambientales
 - **Visualizaciones** y mapas de distribución
 - **Modelado predictivo** y tendencias
+- **Series de Tiempo** y predicciones
 
 ## Datos
 

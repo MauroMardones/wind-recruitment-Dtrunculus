@@ -832,6 +832,7 @@ kableExtra::kbl(comparacion) %>%
 
 \newpage
 
+
 Figura \@ref(fig:resultlm) vemos los resultados de la prediccion con el modelo seleccionado `Modelo con interacción viento × semestre`
 
 ```{r resultlm, fig.pos="ht!", fig.cap="Cada punto = un semestre (n=20). Modelo: Reclutamiento ~ Viento × Semestre"}
