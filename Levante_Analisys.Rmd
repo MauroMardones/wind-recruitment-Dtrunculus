@@ -56,7 +56,7 @@ El objetivo principal de este trabajo es identificar y cuantificar los patrones 
 
 # Metodología
 
-```{r libraries, echo=TRUE}
+```{r libraries, echo=TRUE, message=FALSE}
 paquetes <- c(
   "readr", "dplyr", "lubridate", "stringr", "purrr",
   "ggplot2", "tidyr", "gridExtra", "viridis", "scales",
@@ -828,6 +828,8 @@ comparacion <- data.frame(
 
 kableExtra::kbl(comparacion) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
+
+
 ```
 
 \newpage
@@ -1227,6 +1229,147 @@ Con el archivo `levante_componentes.csv`, puedes:
 ### Trabajo futuro
 
 Incorporar otras variables predictoras como temperatura, clorofila, entre otras...
+
+
+### Relacion con Recruirt del modelo
+
+```{r}
+
+recrumod <- readxl::read_xlsx("~/IEO/SA_Donax_trunculus/tabla_resumen.xlsx")
+head(recrumod)
+
+levante <- read_csv("levante_componentes.csv")
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# Reclutamiento anual (log)
+recr_df <- recrumod %>%
+  filter(Variable == "Recruitment",
+         Scenario == "s3") %>%
+  group_by(Year) %>%
+  summarise(recruitment = mean(Media, na.rm = TRUE)) %>%
+  mutate(log_recruit = log(recruitment))
+
+# Viento anual
+levante_df <- levante %>%
+  mutate(year = year(fecha_quincena)) %>%
+  group_by(year) %>%
+  summarise(mean_vel = mean(velocidad_promedio, na.rm = TRUE))
+
+# Unir
+merged_df <- inner_join(recr_df, levante_df, by = c("Year" = "year"))
+
+
+```
+
+```{r}
+scale_factor <- max(merged_df$log_recruit, na.rm = TRUE) / max(merged_df$mean_vel, na.rm = TRUE)
+
+trendplot <- ggplot(merged_df, aes(x = Year)) +
+  geom_line(aes(y = log_recruit, color = "Log Recruitment"), size = 1.1) +
+  geom_line(aes(y = mean_vel * scale_factor, color = "Mean wind velocity"), size = 1.1, linetype = "dashed") +
+  scale_y_continuous(
+    name = "Log Recruitment",
+    sec.axis = sec_axis(~ . / scale_factor, name = "Wind velocity (m/s)")
+  ) +
+  scale_color_manual(values = c("Log Recruitment" = "blue",
+                                "Mean wind velocity" = "red")) +
+   scale_y_continuous(
+    name = "Log Recruitment",
+    sec.axis = sec_axis(~ . / scale_factor, name = "Wind velocity (m/s)")
+  ) +
+  xlab("")+
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, 
+                               hjust = 1,
+                               size=8), 
+    legend.title = element_blank(),
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
+```
+
+
+```{r}
+
+ts_recr <- ts(merged_df$log_recruit, start = min(merged_df$Year))
+ts_wind <- ts(merged_df$mean_vel, start = min(merged_df$Year))
+
+# Obtener resultados de ccf (sin plot)
+ccf_res <- ccf(ts_wind, ts_recr, lag.max = 5, plot = FALSE)
+
+# Pasar a data.frame
+ccf_df <- data.frame(
+  lag = ccf_res$lag,
+  acf = ccf_res$acf
+)
+
+# Graficar con ggplot
+gg_ccf <- ggplot(ccf_df, aes(x = lag, y = acf)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_hline(yintercept = c(2, -2)/sqrt(length(ts_recr)), 
+             linetype = "dashed", color = "red") +
+  labs(title = "",
+       x = "Lag (years)",
+       y = "Correlation") +
+  theme_bw()
+
+```
+
+```{r}
+merged_df <- merged_df %>%
+  arrange(Year) %>%
+  mutate(wind_lag1 = dplyr::lag(mean_vel, 1),
+         wind_lag2 = dplyr::lag(mean_vel, 2))
+
+```
+
+
+```{r}
+# Lag 1
+cor_lag1 <- cor.test(merged_df$log_recruit, merged_df$wind_lag1, use = "complete.obs")
+cor_lag1
+
+# Lag 2
+cor_lag2 <- cor.test(merged_df$log_recruit, merged_df$wind_lag2, use = "complete.obs")
+cor_lag2
+
+```
+```{r}
+# Scatter con lag1
+p1 <- ggplot(merged_df, aes(x = wind_lag1, y = log_recruit)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  theme_bw() +
+  labs(x = "Wind velocity (lag 1 year)", y = "Log Recruitment",
+       title = paste0("Lag 1: r = ", round(cor_lag1$estimate, 2),
+                      ", p = ", signif(cor_lag1$p.value, 3)))
+
+# Scatter con lag2
+p2 <- ggplot(merged_df, aes(x = wind_lag2, y = log_recruit)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  theme_bw() +
+  labs(x = "Wind velocity (lag 2 years)", y = "Log Recruitment",
+       title = paste0("Lag 2: r = ", round(cor_lag2$estimate, 2),
+                      ", p = ", signif(cor_lag2$p.value, 3)))
+```
+
+
+
+
+```{r}
+library(ggpubr)
+ggarrange(trendplot,gg_ccf,
+  p1, p2, ncol = 2, nrow = 2)
+
+```
 
 
 \newpage
