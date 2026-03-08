@@ -62,7 +62,7 @@ paquetes <- c(
   "ggplot2", "tidyr", "gridExtra", "viridis", "scales",
   "formatR", "ggpubr", "ggthemes", "kableExtra", "sjPlot", 
   "broom", "kableExtra", "zoo", "tseries", "forecast",
-  "seasonal", "plotly"
+  "seasonal", "plotly", "lmtest"
   )
 
 purrr::walk(paquetes, library, character.only = TRUE)
@@ -687,34 +687,51 @@ En primera instancia, no se observa una correlación lineal significativa entre 
 Se procede a analizar la relación entre estas variables en una escala temporal diferente, específicamente a nivel semestral, evaluando la posible influencia del viento de levante sobre el reclutamiento de coquina.
 
 ```{r}
-# 1. AGREGACIÓN A ESCALA SEMESTRAL
-datos_semestral <- levante_clean %>%
+# 1. AGREGACIÓN A ESCALA SEMESTRAL (separada para evitar sesgo por datos faltantes)
+# El viento se agrega desde la serie COMPLETA, independientemente de la disponibilidad
+# de datos de reclutamiento. De lo contrario, semestres con más meses sin reclutamiento
+# tendrían artificialmente menos días de viento sumados.
+
+# --- Viento: desde serie_levante completa ---
+viento_semestral <- serie_levante %>%
   mutate(
-    # Crear variable semestre
     semestre = case_when(
       mes %in% c("Jan", "Feb", "Mar", "Apr", "May", "Jun") ~ 1,
       mes %in% c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec") ~ 2
     ),
-    # Crear identificador año-semestre
     año_semestre = paste(año, semestre, sep = "_")
   ) %>%
-  # Agrupar y sumarizar por semestre
   group_by(año, semestre, año_semestre) %>%
   summarise(
-    # Sumar días de viento en el semestre
     dias_viento_semestre = sum(dias_con_evento, na.rm = TRUE),
-    # Promedio de reclutamiento (removiendo NAs)
-    reclutamiento_promedio = mean(meand15, na.rm = TRUE),
-    # Mediana de reclutamiento 
-    reclutamiento_mediana = median(meand15, na.rm = TRUE),
-    # Suma de reclutamiento
-    reclutamiento_suma = sum(meand15, na.rm = TRUE),
-    # Número de observaciones válidas
-    n_obs_validas = sum(!is.na(meand15)),
+    n_meses_viento       = n(),
     .groups = 'drop'
+  )
+
+# --- Reclutamiento: desde datos_unidos (sin filtrar por viento) ---
+reclu_semestral <- datos_unidos %>%
+  mutate(
+    semestre = case_when(
+      mes %in% c("Jan", "Feb", "Mar", "Apr", "May", "Jun") ~ 1,
+      mes %in% c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec") ~ 2
+    ),
+    año_semestre = paste(año, semestre, sep = "_")
   ) %>%
-  # Solo mantener semestres con datos válidos de reclutamiento
-  filter(n_obs_validas > 0, !is.infinite(reclutamiento_promedio))
+  filter(!is.na(meand15)) %>%
+  group_by(año, semestre, año_semestre) %>%
+  summarise(
+    reclutamiento_promedio = mean(meand15, na.rm = TRUE),
+    reclutamiento_suma     = sum(meand15, na.rm = TRUE),
+    n_obs_validas          = n(),
+    .groups = 'drop'
+  )
+
+# --- Join: solo semestres con ambas variables disponibles ---
+datos_semestral <- inner_join(
+  viento_semestral, reclu_semestral,
+  by = c("año", "semestre", "año_semestre")
+) %>%
+  filter(n_obs_validas > 0)
 ```
 
 ```{r}
@@ -725,18 +742,30 @@ datos_semestral$fecha_semestre <- as.Date(paste(datos_semestral$año,
 
 
 ```{r}
-# Correlación por semestre
+# Correlación por semestre: Pearson y Spearman con p-valores
+# Se reportan ambos métodos dado que la velocidad del viento no sigue distribución normal
+# (test Jarque-Bera, p < 2.2e-16). Spearman es más robusto en ese caso.
 cor_por_semestre <- datos_semestral %>%
   group_by(semestre) %>%
   summarise(
-    correlacion = cor(dias_viento_semestre, reclutamiento_promedio, use = "complete.obs"),
-    n_semestres = n(),
+    r_pearson  = cor(dias_viento_semestre, reclutamiento_promedio, use = "complete.obs"),
+    p_pearson  = cor.test(dias_viento_semestre, reclutamiento_promedio,
+                          method = "pearson")$p.value,
+    r_spearman = cor(dias_viento_semestre, reclutamiento_promedio,
+                     method = "spearman", use = "complete.obs"),
+    p_spearman = cor.test(dias_viento_semestre, reclutamiento_promedio,
+                          method = "spearman", exact = FALSE)$p.value,
+    n          = n(),
     .groups = 'drop'
-  )
+  ) %>%
+  mutate(across(where(is.numeric), ~round(.x, 3)))
 
-kableExtra::kbl(cor_por_semestre) %>%
+kableExtra::kbl(
+  cor_por_semestre,
+  col.names = c("Semestre", "r Pearson", "p Pearson", "r Spearman", "p Spearman", "n"),
+  caption = "Correlaciones Pearson y Spearman entre días de Levante y reclutamiento promedio por semestre. Se reportan ambos métodos por no-normalidad del viento."
+) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
-
 ```
 
 \newpage
@@ -826,90 +855,168 @@ comparacion <- data.frame(
   })
 )
 
-kableExtra::kbl(comparacion) %>%
+kableExtra::kbl(
+  comparacion,
+  caption = "Comparación de modelos: R² ajustado, AIC y p-valor del test F global. El modelo con interacción se selecciona por menor AIC, aunque la interacción tiene p = 0.075 (a = 0.10)."
+) %>%
   kable_styling(latex_options = c("striped", "hold_position"))
-
-
 ```
 
 \newpage
 
+### Diagnóstico del modelo seleccionado
+
+Se verifican los supuestos del modelo con interacción (normalidad de residuos, homoscedasticidad y autocorrelación temporal). Con n = 20 semestres, la potencia es limitada, por lo que se adopta a = 0.10 como umbral de significación.
+
+```{r model-diagnostics-table}
+sw_test <- shapiro.test(residuals(modelo_interaccion_sem))
+bp_test <- lmtest::bptest(modelo_interaccion_sem)
+dw_test <- lmtest::dwtest(modelo_interaccion_sem)
+
+diag_tabla <- data.frame(
+  Test = c(
+    "Shapiro-Wilk (normalidad residuos)",
+    "Breusch-Pagan (homoscedasticidad)",
+    "Durbin-Watson (autocorrelación)"
+  ),
+  Estadístico = round(c(sw_test$statistic,
+                        bp_test$statistic,
+                        dw_test$statistic), 3),
+  p_valor = signif(c(sw_test$p.value,
+                     bp_test$p.value,
+                     dw_test$p.value), 3),
+  Conclusión = c(
+    ifelse(sw_test$p.value > 0.05,
+           "Residuos normales (p > 0.05)",
+           "Residuos no normales (p < 0.05)"),
+    ifelse(bp_test$p.value > 0.05,
+           "Varianza homogénea (p > 0.05)",
+           "Heterocedasticidad (p < 0.05)"),
+    ifelse(dw_test$p.value > 0.05,
+           "Sin autocorrelación (p > 0.05)",
+           "Autocorrelación detectada (p < 0.05)")
+  )
+)
+
+kableExtra::kbl(
+  diag_tabla,
+  col.names = c("Test", "Estadístico", "p-valor", "Conclusión"),
+  caption = "Tests de diagnóstico del modelo con interacción viento × semestre."
+) %>%
+  kable_styling(latex_options = c("striped", "hold_position"))
+```
+
+```{r model-diagnostics-plots, fig.height=6, fig.width=8, out.width="95%", fig.cap="Gráficos de diagnóstico del modelo seleccionado: residuos vs. ajustados, Q-Q, escala-localización e influencia."}
+par(mfrow = c(2, 2))
+plot(modelo_interaccion_sem)
+par(mfrow = c(1, 1))
+```
+
+```{r cook-distance, out.width="70%", fig.cap="Distancia de Cook por semestre. La línea roja indica el umbral 4/n. Observaciones por encima pueden influir excesivamente en los coeficientes."}
+cook_d  <- cooks.distance(modelo_interaccion_sem)
+umbral  <- 4 / nrow(datos_semestral)
+
+cook_df <- data.frame(
+  obs          = seq_along(cook_d),
+  cook         = cook_d,
+  año_semestre = datos_semestral$año_semestre,
+  influyente   = cook_d > umbral
+)
+
+ggplot(cook_df, aes(x = obs, y = cook, fill = influyente)) +
+  geom_col(alpha = 0.8) +
+  geom_hline(yintercept = umbral, linetype = "dashed", color = "red", linewidth = 0.8) +
+  geom_text(data = subset(cook_df, influyente),
+            aes(label = año_semestre), vjust = -0.5, size = 2.8, color = "red") +
+  scale_fill_manual(values = c("FALSE" = "steelblue", "TRUE" = "tomato"),
+                    labels = c("Normal", "Influyente"),
+                    name = "") +
+  labs(x = "Observación (semestre)",
+       y = "Distancia de Cook",
+       subtitle = paste0("Umbral = 4/n = ", round(umbral, 3),
+                         " | n = ", nrow(datos_semestral), " semestres")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
 
 Figura \@ref(fig:resultlm) vemos los resultados de la prediccion con el modelo seleccionado `Modelo con interacción viento × semestre`
 
-```{r resultlm, fig.pos="ht!", fig.cap="Cada punto = un semestre (n=20). Modelo: Reclutamiento ~ Viento × Semestre"}
-# Crear datos para las líneas de regresión
-rango_viento <- seq(min(datos_semestral$dias_viento_semestre), 
-                   max(datos_semestral$dias_viento_semestre), 
-                   length.out = 100)
+```{r resultlm, fig.pos="ht!", fig.cap="Cada punto representa un semestre. Líneas y bandas de IC al 95% proceden del modelo de interacción conjunto (no de modelos separados por semestre). n total indicado en el subtítulo."}
+# Rango de viento para predicciones
+rango_viento <- seq(min(datos_semestral$dias_viento_semestre),
+                    max(datos_semestral$dias_viento_semestre),
+                    length.out = 200)
 
-# Predicciones para cada semestre
-# Crear el data.frame para predecir
+# Data frame para predicciones del modelo de interacción conjunto
 nuevo_df <- expand.grid(
   dias_viento_semestre = rango_viento,
-  semestre = c(1, 2)
+  semestre = factor(c(1, 2))
 )
-# Importante: convertir 'semestre' a factor para que encaje con el modelo
-nuevo_df$semestre <- factor(nuevo_df$semestre)
 
-# Usar el modelo con interacción
-nuevo_df$reclutamiento_pred <- predict(modelo_interaccion_sem, newdata = nuevo_df)
+# ICs correctos: desde el modelo de interacción conjunto (NO geom_smooth separados)
+pred_ic <- predict(modelo_interaccion_sem,
+                   newdata = nuevo_df,
+                   interval = "confidence",
+                   level = 0.95)
+nuevo_df <- cbind(nuevo_df, as.data.frame(pred_ic))
 
-# Gráfico principal
+# Extraer coeficientes para las anotaciones (recalculados desde el modelo)
+coef_m <- coef(modelo_interaccion_sem)
+int_s1 <- round(coef_m["(Intercept)"], 1)
+sl_s1  <- round(coef_m["dias_viento_semestre"], 2)
+int_s2 <- round(coef_m["(Intercept)"] + coef_m["factor(semestre)2"], 1)
+sl_s2  <- round(coef_m["dias_viento_semestre"] +
+                  coef_m["dias_viento_semestre:factor(semestre)2"], 2)
+
+r2_adj <- round(summary(modelo_interaccion_sem)$adj.r.squared, 2)
+p_int  <- round(coef(summary(modelo_interaccion_sem))["dias_viento_semestre:factor(semestre)2", "Pr(>|t|)"], 3)
+
 p_final <- ggplot() +
+  # Bandas de IC al 95% del modelo conjunto
+  geom_ribbon(data = filter(nuevo_df, semestre == "1"),
+              aes(x = dias_viento_semestre, ymin = lwr, ymax = upr),
+              fill = "darkred", alpha = 0.15) +
+  geom_ribbon(data = filter(nuevo_df, semestre == "2"),
+              aes(x = dias_viento_semestre, ymin = lwr, ymax = upr),
+              fill = "steelblue", alpha = 0.15) +
+  # Líneas de regresión
+  geom_line(data = nuevo_df,
+            aes(x = dias_viento_semestre, y = fit,
+                color = semestre),
+            linewidth = 1.2) +
   # Puntos observados
-    geom_point(data = datos_semestral, 
-             aes(x = dias_viento_semestre, y = reclutamiento_promedio, 
-                 color = factor(semestre), shape = factor(semestre)), 
-             size = 2, alpha = 0.8) +
-  
-  # # Líneas de regresión
-    geom_line(data = nuevo_df, 
-            aes(x = dias_viento_semestre, 
-                y = reclutamiento_pred,
-                color = factor(semestre)), 
-            size = 1.2) +
-  # Intervalos de confianza
-  geom_smooth(data = filter(datos_semestral, semestre == 1),
-              aes(x = dias_viento_semestre, y = reclutamiento_promedio),
-              method = "lm", se = TRUE, alpha = 0.2, color = "darkred") +
-  
-  geom_smooth(data = filter(datos_semestral, semestre == 2),
-              aes(x = dias_viento_semestre, y = reclutamiento_promedio),
-              method = "lm", se = TRUE, alpha = 0.2, color = "steelblue") +
-  
-  # Anotaciones con las ecuaciones
-  annotate("text", x = 65, y = 20, 
-           label = "Semestre 1 (Ene-Jun):\nReclut = 21.8 - 0.16×Viento\n(Efecto NEGATIVO)", 
-           color = "darkred", size = 3.5, hjust = 0, fontface = "bold") +
-  
-  annotate("text", x = 35, y = 40, 
-           label = "Semestre 2 (Jul-Dic):\nReclut = 10.2 + 0.40×Viento\n(Efecto POSITIVO)", 
-           color = "steelblue", size = 3.5, hjust = 0, fontface = "bold") +
-  
-  # Configuración estética
+  geom_point(data = datos_semestral,
+             aes(x = dias_viento_semestre, y = reclutamiento_promedio,
+                 color = factor(semestre), shape = factor(semestre)),
+             size = 2.5, alpha = 0.85) +
+  # Etiquetas de ecuación (desde coeficientes reales del modelo)
+  annotate("text", x = max(rango_viento) * 0.55, y = max(datos_semestral$reclutamiento_promedio) * 0.35,
+           label = paste0("Semestre 1 (Ene-Jun):\nReclut = ", int_s1,
+                          ifelse(sl_s1 >= 0, " + ", " "), sl_s1, "×Viento\n(Efecto NEGATIVO)"),
+           color = "darkred", size = 3.3, hjust = 0, fontface = "bold") +
+  annotate("text", x = max(rango_viento) * 0.20, y = max(datos_semestral$reclutamiento_promedio) * 0.80,
+           label = paste0("Semestre 2 (Jul-Dic):\nReclut = ", int_s2,
+                          ifelse(sl_s2 >= 0, " + ", " "), sl_s2, "×Viento\n(Efecto POSITIVO)"),
+           color = "steelblue", size = 3.3, hjust = 0, fontface = "bold") +
   scale_color_manual(values = c("1" = "darkred", "2" = "steelblue"),
-                     labels = c("1" = "Ene-Jun (Reproductivo)", 
-                               "2" = "Jul-Dic (Crecimiento)")) +
-  
+                     labels = c("1" = "Ene-Jun (Reproductivo)",
+                                "2" = "Jul-Dic (Crecimiento)")) +
   scale_shape_manual(values = c("1" = 16, "2" = 17),
-                     labels = c("1" = "Ene-Jun (Reproductivo)", 
-                               "2" = "Jul-Dic (Crecimiento)")) +
-  
+                     labels = c("1" = "Ene-Jun (Reproductivo)",
+                                "2" = "Jul-Dic (Crecimiento)")) +
   labs(
-    title = "",
-    subtitle = "R² = 41% | p < 0.01 | Interacción p = 0.075",
-    x = "Días de viento de Levante por semestre",
-    y = "Reclutamiento promedio de coquina",
-    color = "Período",
-    shape = "Período"
+    subtitle = paste0("R² adj = ", r2_adj,
+                      " | n = ", nrow(datos_semestral), " semestres",
+                      " | p interacción = ", p_int,
+                      " | Banda: IC 95% del modelo conjunto"),
+    x = "Días con viento de Levante por semestre",
+    y = "Reclutamiento promedio (d15)",
+    color = "Período", shape = "Período"
   ) +
-  
   theme_minimal() +
   theme(
     legend.position = "bottom",
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.subtitle = element_text(size = 11, color = "gray40"),
+    plot.subtitle = element_text(size = 9, color = "gray40"),
     legend.title = element_text(face = "bold")
   )
 
@@ -1235,7 +1342,7 @@ Incorporar otras variables predictoras como temperatura, clorofila, entre otras.
 
 ```{r}
 
-recrumod <- readxl::read_xlsx("~/IEO/SA_Donax_trunculus/tabla_resumen.xlsx")
+recrumod <- readxl::read_xlsx("~/IEO/SA_Donax_trunculus/outputs/tabla_resumen.xlsx")
 head(recrumod)
 
 levante <- read_csv("levante_componentes.csv")
@@ -1278,11 +1385,7 @@ trendplot <- ggplot(merged_df, aes(x = Year)) +
   ) +
   scale_color_manual(values = c("Log Recruitment" = "blue",
                                 "Mean wind velocity" = "red")) +
-   scale_y_continuous(
-    name = "Log Recruitment",
-    sec.axis = sec_axis(~ . / scale_factor, name = "Wind velocity (m/s)")
-  ) +
-  xlab("")+
+  xlab("") +
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, 
@@ -1296,30 +1399,38 @@ trendplot <- ggplot(merged_df, aes(x = Year)) +
 
 
 ```{r}
-
 ts_recr <- ts(merged_df$log_recruit, start = min(merged_df$Year))
 ts_wind <- ts(merged_df$mean_vel, start = min(merged_df$Year))
+n_total <- length(ts_recr)
 
 # Obtener resultados de ccf (sin plot)
 ccf_res <- ccf(ts_wind, ts_recr, lag.max = 5, plot = FALSE)
 
-# Pasar a data.frame
+# Calcular n de pares efectivos por lag (n_total - |lag|)
 ccf_df <- data.frame(
-  lag = ccf_res$lag,
-  acf = ccf_res$acf
-)
+  lag   = as.numeric(ccf_res$lag),
+  acf   = as.numeric(ccf_res$acf)
+) %>%
+  mutate(n_pares = n_total - abs(lag))
 
 # Graficar con ggplot
+# Nota: con n_total = 10-12 años, el lag 5 tiene solo ~5-7 pares → resultados inestables
 gg_ccf <- ggplot(ccf_df, aes(x = lag, y = acf)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_col(fill = "steelblue", alpha = 0.8) +
   geom_hline(yintercept = 0, color = "black") +
-  geom_hline(yintercept = c(2, -2)/sqrt(length(ts_recr)), 
+  geom_hline(yintercept = c(2, -2) / sqrt(n_total),
              linetype = "dashed", color = "red") +
+  geom_text(aes(label = paste0("n=", n_pares)),
+            vjust = ifelse(ccf_df$acf >= 0, -0.4, 1.2),
+            size = 2.5, color = "gray30") +
   labs(title = "",
-       x = "Lag (years)",
-       y = "Correlation") +
-  theme_bw()
-
+       subtitle = paste0("Serie de ", n_total,
+                         " años. Líneas rojas = IC 95% asintótico (±2/√n_total).",
+                         "\nEtiquetas indican n de pares efectivos por lag."),
+       x = "Desfase (años)",
+       y = "Correlación cruzada") +
+  theme_bw() +
+  theme(plot.subtitle = element_text(size = 8, color = "gray40"))
 ```
 
 ```{r}

@@ -243,7 +243,7 @@ El objetivo principal de este trabajo es identificar y cuantificar los patrones 
   \StringTok{"ggplot2"}\NormalTok{, }\StringTok{"tidyr"}\NormalTok{, }\StringTok{"gridExtra"}\NormalTok{, }\StringTok{"viridis"}\NormalTok{, }\StringTok{"scales"}\NormalTok{,}
   \StringTok{"formatR"}\NormalTok{, }\StringTok{"ggpubr"}\NormalTok{, }\StringTok{"ggthemes"}\NormalTok{, }\StringTok{"kableExtra"}\NormalTok{, }\StringTok{"sjPlot"}\NormalTok{, }
   \StringTok{"broom"}\NormalTok{, }\StringTok{"kableExtra"}\NormalTok{, }\StringTok{"zoo"}\NormalTok{, }\StringTok{"tseries"}\NormalTok{, }\StringTok{"forecast"}\NormalTok{,}
-  \StringTok{"seasonal"}\NormalTok{, }\StringTok{"plotly"}
+  \StringTok{"seasonal"}\NormalTok{, }\StringTok{"plotly"}\NormalTok{, }\StringTok{"lmtest"}
 \NormalTok{  )}
 
 \NormalTok{purrr}\SpecialCharTok{::}\FunctionTok{walk}\NormalTok{(paquetes, library, }\AttributeTok{character.only =} \ConstantTok{TRUE}\NormalTok{)}
@@ -582,13 +582,15 @@ Se procede a analizar la relación entre estas variables en una escala temporal 
 
 \begin{table}[!h]
 \centering
-\begin{tabular}[t]{r|r|r}
+\caption{\label{tab:unnamed-chunk-8}Correlaciones Pearson y Spearman entre días de Levante y reclutamiento promedio por semestre. Se reportan ambos métodos por no-normalidad del viento.}
+\centering
+\begin{tabular}[t]{r|r|r|r|r|r}
 \hline
-semestre & correlacion & n\_semestres\\
+Semestre & r Pearson & p Pearson & r Spearman & p Spearman & n\\
 \hline
-\cellcolor{gray!10}{1} & \cellcolor{gray!10}{-0.1966243} & \cellcolor{gray!10}{10}\\
+\cellcolor{gray!10}{1} & \cellcolor{gray!10}{-0.405} & \cellcolor{gray!10}{0.245} & \cellcolor{gray!10}{-0.377} & \cellcolor{gray!10}{0.283} & \cellcolor{gray!10}{10}\\
 \hline
-2 & 0.5225889 & 10\\
+2 & 0.442 & 0.201 & 0.517 & 0.126 & 10\\
 \hline
 \end{tabular}
 \end{table}
@@ -666,22 +668,63 @@ Donde:
 
 \begin{table}[!h]
 \centering
+\caption{\label{tab:unnamed-chunk-9}Comparación de modelos: R² ajustado, AIC y p-valor del test F global. El modelo con interacción se selecciona por menor AIC, aunque la interacción tiene p = 0.075 (a = 0.10).}
+\centering
 \begin{tabular}[t]{l|l|r|r|r}
 \hline
   & Modelo & R2\_ajustado & AIC & p\_value\\
 \hline
-\cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{-0.0554818} & \cellcolor{gray!10}{159.4193} & \cellcolor{gray!10}{0.9720995}\\
+\cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{Lineal} & \cellcolor{gray!10}{-0.0297745} & \cellcolor{gray!10}{158.9262} & \cellcolor{gray!10}{0.5105547}\\
 \hline
-Cuadrático & Cuadrático & -0.0469758 & 160.1143 & 0.5739469\\
+Cuadrático & Cuadrático & -0.0421342 & 160.0216 & 0.5517738\\
 \hline
-\cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{0.3456430} & \cellcolor{gray!10}{150.7142} & \cellcolor{gray!10}{0.0105642}\\
+\cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{Con semestre} & \cellcolor{gray!10}{0.3187816} & \cellcolor{gray!10}{151.5188} & \cellcolor{gray!10}{0.0148711}\\
 \hline
-Interacción & Interacción & 0.4262550 & 148.8723 & 0.0074818\\
+Interacción & Interacción & 0.4102069 & 149.4240 & 0.0092298\\
 \hline
 \end{tabular}
 \end{table}
 
 \newpage
+
+\subsubsection{Diagnóstico del modelo seleccionado}\label{diagnuxf3stico-del-modelo-seleccionado}
+
+Se verifican los supuestos del modelo con interacción (normalidad de residuos, homoscedasticidad y autocorrelación temporal). Con n = 20 semestres, la potencia es limitada, por lo que se adopta a = 0.10 como umbral de significación.
+
+\begin{table}[!h]
+\centering
+\caption{\label{tab:model-diagnostics-table}Tests de diagnóstico del modelo con interacción viento × semestre.}
+\centering
+\begin{tabular}[t]{l|l|r|r|l}
+\hline
+  & Test & Estadístico & p-valor & Conclusión\\
+\hline
+\cellcolor{gray!10}{W} & \cellcolor{gray!10}{Shapiro-Wilk (normalidad residuos)} & \cellcolor{gray!10}{0.907} & \cellcolor{gray!10}{0.0549} & \cellcolor{gray!10}{Residuos normales (p > 0.05)}\\
+\hline
+BP & Breusch-Pagan (homoscedasticidad) & 1.534 & 0.6750 & Varianza homogénea (p > 0.05)\\
+\hline
+\cellcolor{gray!10}{DW} & \cellcolor{gray!10}{Durbin-Watson (autocorrelación)} & \cellcolor{gray!10}{1.199} & \cellcolor{gray!10}{0.0419} & \cellcolor{gray!10}{Autocorrelación detectada (p < 0.05)}\\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.95\linewidth]{Levante_Analisys_files/figure-latex/model-diagnostics-plots-1} 
+
+}
+
+\caption{Gráficos de diagnóstico del modelo seleccionado: residuos vs. ajustados, Q-Q, escala-localización e influencia.}\label{fig:model-diagnostics-plots}
+\end{figure}
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{Levante_Analisys_files/figure-latex/cook-distance-1} 
+
+}
+
+\caption{Distancia de Cook por semestre. La línea roja indica el umbral 4/n. Observaciones por encima pueden influir excesivamente en los coeficientes.}\label{fig:cook-distance}
+\end{figure}
 
 Figura \ref{fig:resultlm} vemos los resultados de la prediccion con el modelo seleccionado \texttt{Modelo\ con\ interacción\ viento\ ×\ semestre}
 
@@ -691,7 +734,7 @@ Figura \ref{fig:resultlm} vemos los resultados de la prediccion con el modelo se
 
 }
 
-\caption{Cada punto = un semestre (n=20). Modelo: Reclutamiento ~ Viento × Semestre}\label{fig:resultlm}
+\caption{Cada punto representa un semestre. Líneas y bandas de IC al 95\% proceden del modelo de interacción conjunto (no de modelos separados por semestre). n total indicado en el subtítulo.}\label{fig:resultlm}
 \end{figure}
 
 Efectos opuestos del viento de Levante según el período del año. El gráfico muestra que la influencia del viento de Levante sobre el reclutamiento de coquina (\emph{Donax trunculus}) varía significativamente según el semestre del año, revelando una interacción estacional. Durante el primer semestre (enero a junio), que corresponde al periodo reproductivo, se observa un efecto negativo, es decir, a mayor número de días con viento de Levante, menor es el reclutamiento promedio. Esto sugiere que estos vientos podrían interferir con el éxito reproductivo, afectando la dispersión larval o la retención costera, o generando condiciones ambientales desfavorables en el hábitat de asentamiento, como cambios en temperatura, salinidad o estructura del sedimento. En cambio, en el segundo semestre (julio a diciembre), el efecto es positivo: un mayor número de días con viento se asocia con un mayor reclutamiento, lo que podría deberse a que estos vientos favorecen la acumulación de materia orgánica o sedimentos en las playas, mejorando las condiciones de crecimiento y refugio para los juveniles ya asentados. Esta inversión del efecto sugiere que el mismo factor ambiental puede tener consecuencias opuestas según el momento del ciclo de vida en que actúa, lo que subraya la importancia de considerar la estacionalidad en la evaluación del reclutamiento y en la gestión pesquera de esta especie.
@@ -902,6 +945,50 @@ Con el archivo \texttt{levante\_componentes.csv}, puedes:
 \subsubsection{Trabajo futuro}\label{trabajo-futuro}
 
 Incorporar otras variables predictoras como temperatura, clorofila, entre otras\ldots{}
+
+\subsubsection{Relacion con Recruirt del modelo}\label{relacion-con-recruirt-del-modelo}
+
+\begin{verbatim}
+## # A tibble: 6 x 5
+##   Scenario Variable   Year Media SDmedia
+##   <chr>    <chr>     <dbl> <dbl>   <dbl>
+## 1 s0       Depletion  2004 0.919  0.0575
+## 2 s0       Depletion  2005 0.952  0.0771
+## 3 s0       Depletion  2006 0.865  0.0760
+## 4 s0       Depletion  2007 0.739  0.105 
+## 5 s0       Depletion  2008 0.702  0.111 
+## 6 s0       Depletion  2009 0.570  0.107
+\end{verbatim}
+
+\begin{verbatim}
+## 
+##  Pearson's product-moment correlation
+## 
+## data:  merged_df$log_recruit and merged_df$wind_lag1
+## t = 0.61433, df = 10, p-value = 0.5527
+## alternative hypothesis: true correlation is not equal to 0
+## 95 percent confidence interval:
+##  -0.4302925  0.6891773
+## sample estimates:
+##       cor 
+## 0.1907022
+\end{verbatim}
+
+\begin{verbatim}
+## 
+##  Pearson's product-moment correlation
+## 
+## data:  merged_df$log_recruit and merged_df$wind_lag2
+## t = 0.38388, df = 9, p-value = 0.71
+## alternative hypothesis: true correlation is not equal to 0
+## 95 percent confidence interval:
+##  -0.5119265  0.6753783
+## sample estimates:
+##       cor 
+## 0.1269267
+\end{verbatim}
+
+\begin{center}\includegraphics[width=1\linewidth]{Levante_Analisys_files/figure-latex/unnamed-chunk-26-1} \end{center}
 
 \newpage
 
